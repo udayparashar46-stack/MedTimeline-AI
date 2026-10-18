@@ -21,3 +21,15 @@ This file tracks key technical decisions, rationale, and deviations from the ori
 ### Decision 4: Pytest + HTTPX for Backend API Tests
 * **Choice**: Use `pytest` alongside FastAPI's standard test client pattern (`httpx`).
 * **Rationale**: Simple, deterministic, standard for FastAPI microservices, and easily extended in future milestones.
+
+---
+
+## 2026-10-18: M1 Design System and App Shell
+
+### Decision 5: CSS Variables with Native Design Tokens
+* **Choice**: Map blueprint Section 5.1 design tokens to CSS variables (`--primary: #0F766E`, `--success: #15803D`, etc.) paired with `@tailwindcss/vite`.
+* **Rationale**: Gives instant dark-mode readiness, strict adherence to WCAG AA colors, and zero runtime performance penalty.
+
+### Decision 6: Built-in Accessible Core Components
+* **Choice**: Build core UI primitives (Button, Badge, Card, Table, Modal, Drawer, etc.) directly in `components/ui/` with zero third-party UI library bloat.
+* **Rationale**: Keeps the codebase transparent and easy to debug for beginners while maintaining visible focus rings, reduced motion support, and medical table states.

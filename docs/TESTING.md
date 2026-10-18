@@ -23,7 +23,22 @@ Keep track of acceptance testing by hand for each milestone. Tick items off as t
 ---
 
 ## M1: Design System & App Shell
-*(To be completed in Milestone 1)*
+
+- [ ] **AppShell & Navigation**:
+  1. Open `http://localhost:5173`.
+  2. Verify top bar displays the current page title, live connection badge, and "Check Connection" button.
+  3. Verify left sidebar contains links for Dashboard, Workspaces, Timeline View, Test Mapping, UI Styleguide, and Settings.
+  4. On mobile viewport (<768px), verify sidebar collapses and opens via hamburger menu.
+- [ ] **UI Component Styleguide**:
+  1. Click "UI Styleguide" in the sidebar.
+  2. Verify "Core Components" tab renders Buttons, Badges, Inputs, Modals, Drawers, Dropzone, and Skeletons in all operational states.
+  3. Verify "Color & Typography Tokens" tab displays WCAG AA compliant color swatches.
+  4. Verify "Timeline Table States" tab renders sticky columns, filled cells, blank dashes, unreviewed dashed underlines, edited dots, and High/Low flag tints.
+  5. Test keyboard navigation: press `Tab` and verify clear teal focus rings appear on all interactive controls.
+- [ ] **Automated Tests & Quality Gates**:
+  1. `npm test` in `frontend/` -> 5 passed.
+  2. `npm run type-check` in `frontend/` -> 0 errors.
+  3. `pytest` in `backend/` -> 1 passed.
 
 ## M2: Patient Workspaces
 *(To be completed in Milestone 2)*

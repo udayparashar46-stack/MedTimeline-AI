@@ -16,12 +16,14 @@
 
 ---
 
-## Current Status: Milestone 0 (M0 — Foundations)
+## Current Status: Milestone 1 (M1 — Design System & App Shell)
 
-This milestone provides the core project foundation:
-* **Backend**: FastAPI serving health liveness check at `GET /api/v1/health` bound strictly to `127.0.0.1:8000`.
-* **Frontend**: React 18 + Vite + TypeScript (strict mode) with an `/api` proxy connecting to the backend.
-* **Automated Tests**: Pytest for backend API and Vitest for frontend components.
+* **Design System**: Complete tokenized design system in `src/styles/tokens.css` with deep teal (`#0F766E`) and success green (`#15803D`) WCAG AA colors.
+* **Component Library**: Fully accessible UI kit in `src/components/ui/` (Button, IconButton, Badge, Card, Input, DateInput, Select, Table with medical states, Tabs, Modal, Drawer, Toast, Tooltip, FileDropzone, ProgressRow, Skeleton, EmptyState, Banner).
+* **Responsive SaaS Shell**: Clean dashboard layout with collapsible sidebar, sticky top bar, medical disclaimer, and live backend connection badge.
+* **Interactive Styleguide**: Dedicated `/styleguide` page displaying every component and table state.
+* **Backend**: FastAPI serving health check at `GET /api/v1/health` bound strictly to `127.0.0.1:8000`.
+* **Automated Tests**: Pytest for backend and 5 Vitest tests for the frontend app shell, navigation, and components.
 
 ---
 
