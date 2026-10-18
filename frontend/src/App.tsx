@@ -48,12 +48,23 @@ export function App() {
         );
       case 'styleguide':
         return <StyleguidePage />;
+      case 'patients':
       case 'workspaces':
         return (
           <EmptyState
-            icon="📁"
-            title="Patient Workspaces (Milestone 2)"
-            description="Patient models, workspace creation, and report file lists will be implemented in Milestone 2."
+            icon="👥"
+            title="Patients (Milestone 2)"
+            description="Patient workspaces, profiles, and chronological report lists will be implemented in Milestone 2."
+            actionLabel="Return to Dashboard"
+            onAction={() => setCurrentRoute('dashboard')}
+          />
+        );
+      case 'upload':
+        return (
+          <EmptyState
+            icon="📤"
+            title="Upload Lab Reports (Milestone 3)"
+            description="Multi-file upload, SHA-256 duplicate validation, and batch processing will be implemented in Milestone 3."
             actionLabel="Return to Dashboard"
             onAction={() => setCurrentRoute('dashboard')}
           />

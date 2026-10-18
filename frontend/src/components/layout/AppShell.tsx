@@ -24,17 +24,20 @@ export const AppShell: React.FC<AppShellProps> = ({
   const getPageTitle = (route: string) => {
     switch (route) {
       case 'dashboard':
-        return 'System Dashboard';
+        return 'Medical Dashboard';
+      case 'patients':
       case 'workspaces':
-        return 'Patient Workspaces';
+        return 'Patients';
       case 'timeline':
-        return 'Lab Timeline View';
+        return 'Report Timeline';
+      case 'upload':
+        return 'Upload Reports';
       case 'mapping':
-        return 'Canonical Test Mapping';
+        return 'Test Mapping';
       case 'styleguide':
         return 'UI Component Styleguide';
       case 'settings':
-        return 'Settings & Privacy Policy';
+        return 'Settings & Privacy';
       default:
         return 'Overview';
     }
@@ -110,7 +113,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         </header>
 
         {/* Content Body */}
-        <main style={{ flex: 1, padding: '32px 24px', maxWidth: '1200px', width: '100%', margin: '0 auto' }}>
+        <main style={{ flex: 1, padding: '32px 24px', maxWidth: '1280px', width: '100%', margin: '0 auto' }}>
           {children}
         </main>
 

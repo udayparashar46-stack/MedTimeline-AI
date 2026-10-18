@@ -38,6 +38,41 @@ describe('App Shell, Navigation & Health Status', () => {
     });
   });
 
+  it('renders the Stitch-inspired Medical Dashboard with metrics and timelines', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ status: 'ok' }),
+    } as Response);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Backend connected').length).toBeGreaterThan(0);
+    });
+
+    // Verify Dashboard Title & Subtitle
+    expect(screen.getAllByText('Medical Dashboard').length).toBeGreaterThan(0);
+    expect(
+      screen.getByText('Turn scattered lab reports into one clear patient timeline.'),
+    ).toBeInTheDocument();
+
+    // Verify Primary Action Buttons
+    expect(screen.getAllByRole('button', { name: /upload reports/i }).length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: /new patient/i })).toBeInTheDocument();
+
+    // Verify 4 Metric Cards
+    expect(screen.getByText('Total Patients')).toBeInTheDocument();
+    expect(screen.getByText('Reports Processed')).toBeInTheDocument();
+    expect(screen.getByText('Tests Extracted')).toBeInTheDocument();
+    expect(screen.getByText('Pending Reviews')).toBeInTheDocument();
+
+    // Verify Patient Timeline Table and Analyte Trends Preview
+    expect(screen.getByText('Recent Patient Timelines')).toBeInTheDocument();
+    expect(screen.getByText('Sarah Jenkins')).toBeInTheDocument();
+    expect(screen.getByText('Analyte Trends Preview')).toBeInTheDocument();
+    expect(screen.getByText('Recent Activity')).toBeInTheDocument();
+  });
+
   it('navigates to the Styleguide and displays design system components', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
       ok: true,

@@ -22,11 +22,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const navItems: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-    { id: 'workspaces', label: 'Workspaces', icon: '📁', badge: '1' },
-    { id: 'timeline', label: 'Timeline View', icon: '📈' },
-    { id: 'mapping', label: 'Test Mapping', icon: '🏷️' },
-    { id: 'styleguide', label: 'UI Styleguide', icon: '🎨' },
-    { id: 'settings', label: 'Settings & Privacy', icon: '⚙️' },
+    { id: 'patients', label: 'Patients', icon: '👥', badge: '12' },
+    { id: 'timeline', label: 'Report Timeline', icon: '📈' },
+    { id: 'upload', label: 'Upload Reports', icon: '📤' },
+    { id: 'settings', label: 'Settings', icon: '⚙️' },
+    { id: 'styleguide', label: 'UI Styleguide', icon: '🎨', badge: 'M1' },
   ];
 
   return (
@@ -37,7 +37,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           style={{
             position: 'fixed',
             inset: 0,
-            backgroundColor: 'rgba(15, 27, 45, 0.4)',
+            backgroundColor: 'rgba(15, 23, 42, 0.4)',
             zIndex: 40,
           }}
           onClick={onCloseMobile}
@@ -72,14 +72,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
         >
           <div
             style={{
-              width: '12px',
-              height: '12px',
-              borderRadius: '50%',
+              width: '14px',
+              height: '14px',
+              borderRadius: '4px',
               backgroundColor: 'var(--primary)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#FFFFFF',
+              fontSize: '10px',
+              fontWeight: 700,
             }}
-          />
+          >
+            +
+          </div>
           <div>
-            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>
+            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)', letterSpacing: '-0.01em' }}>
               MedTimeline AI
             </div>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Lab Report Intelligence</div>
@@ -89,7 +97,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Navigation list */}
         <nav style={{ flex: 1, padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
           {navItems.map((item) => {
-            const isActive = currentRoute === item.id;
+            const isActive = currentRoute === item.id || (item.id === 'patients' && currentRoute === 'workspaces');
             return (
               <button
                 key={item.id}
@@ -102,7 +110,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: '8px 12px',
+                  padding: '9px 12px',
                   borderRadius: 'var(--radius-input)',
                   border: 'none',
                   backgroundColor: isActive ? 'var(--primary-soft)' : 'transparent',
@@ -115,17 +123,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span>{item.icon}</span>
+                  <span style={{ fontSize: '15px' }}>{item.icon}</span>
                   <span>{item.label}</span>
                 </div>
                 {item.badge && (
                   <span
                     style={{
                       fontSize: '11px',
-                      padding: '1px 6px',
+                      padding: '1px 7px',
                       borderRadius: '999px',
-                      backgroundColor: 'var(--surface-muted)',
-                      color: 'var(--text-muted)',
+                      backgroundColor: isActive ? 'rgba(15, 118, 110, 0.15)' : 'var(--surface-muted)',
+                      color: isActive ? 'var(--primary)' : 'var(--text-muted)',
+                      fontWeight: 600,
                     }}
                   >
                     {item.badge}
@@ -144,10 +153,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             backgroundColor: 'var(--surface-muted)',
             fontSize: '11px',
             color: 'var(--text-muted)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '4px',
           }}
         >
-          <div>Version 0.1.0 • M1 Shell</div>
-          <div>Localhost (127.0.0.1)</div>
+          <div style={{ fontWeight: 500, color: 'var(--text)' }}>MedTimeline SaaS v0.1.0</div>
+          <div>Localhost • 127.0.0.1:8000</div>
         </div>
       </aside>
     </>
