@@ -11,7 +11,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.repositories import patient_repo, test_repo
+from app.db.models.user import User
+from app.repositories import test_repo
 from app.schemas.test import (
     UnmatchedTestsResponse,
     UnmatchedTestItem,
@@ -26,6 +27,7 @@ from app.services.normalization.matcher import (
     get_unmatched_tests_for_patient,
     check_unit_mismatches_for_patient,
 )
+from app.api.deps import get_current_user, verify_patient_access
 
 router = APIRouter(tags=["mapping"])
 
@@ -37,11 +39,10 @@ router = APIRouter(tags=["mapping"])
 def get_unmatched_tests(
     patient_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> UnmatchedTestsResponse:
     """Retrieve all unmatched test names in a patient workspace with fuzzy match suggestions."""
-    patient = patient_repo.get_patient(db, patient_id)
-    if patient is None:
-        raise HTTPException(status_code=404, detail="Patient workspace not found.")
+    verify_patient_access(patient_id, db=db, current_user=current_user)
 
     items = get_unmatched_tests_for_patient(db, patient_id)
     formatted = [
@@ -74,11 +75,10 @@ def create_mapping(
     patient_id: str,
     data: MappingCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> MappingResponse:
     """Link a raw test name to a canonical test, updating all matching ExtractedResults."""
-    patient = patient_repo.get_patient(db, patient_id)
-    if patient is None:
-        raise HTTPException(status_code=404, detail="Patient workspace not found.")
+    verify_patient_access(patient_id, db=db, current_user=current_user)
 
     test = test_repo.get_canonical_test(db, data.test_id)
     if test is None:
@@ -106,11 +106,10 @@ def delete_mapping(
     patient_id: str,
     alias_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> None:
     """Delete a user-defined alias mapping and unlink affected ExtractedResults."""
-    patient = patient_repo.get_patient(db, patient_id)
-    if patient is None:
-        raise HTTPException(status_code=404, detail="Patient workspace not found.")
+    verify_patient_access(patient_id, db=db, current_user=current_user)
 
     deleted = test_repo.delete_test_alias(db, alias_id, patient_id=patient_id)
     if not deleted:
@@ -126,11 +125,10 @@ def delete_mapping(
 def get_unit_mismatches(
     patient_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> UnitMismatchResponse:
     """Check for unit discrepancies across reports for canonical tests in this patient workspace."""
-    patient = patient_repo.get_patient(db, patient_id)
-    if patient is None:
-        raise HTTPException(status_code=404, detail="Patient workspace not found.")
+    verify_patient_access(patient_id, db=db, current_user=current_user)
 
     mismatches = check_unit_mismatches_for_patient(db, patient_id)
     return UnitMismatchResponse(

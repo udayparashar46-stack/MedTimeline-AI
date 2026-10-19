@@ -17,7 +17,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.session import get_db
-from app.repositories import patient_repo, report_repo, result_repo
+from app.db.models.user import User
+from app.repositories import report_repo, result_repo, audit_repo
 from app.schemas.report import (
     ReportResponse,
     ReportListResponse,
@@ -35,10 +36,9 @@ from app.schemas.result import (
 from app.services.storage import storage_service
 from app.services.extraction import extract_report_from_bytes
 from app.api.v1.results import format_result_response
-
+from app.api.deps import get_current_user, verify_patient_access, verify_report_access
 
 router = APIRouter(tags=["reports"])
-
 
 
 @router.post(
@@ -50,19 +50,18 @@ async def upload_reports(
     patient_id: str,
     files: list[UploadFile] = File(...),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> BatchUploadResponse:
     """Upload one or more PDF reports for a patient workspace.
 
     Validates:
-    - Patient exists
+    - User has access to this patient workspace (tenant isolation)
     - Batch size (<= 25 files)
     - File extension (.pdf), size limit (<= 20MB), magic bytes (%PDF-), and structural validity
     - SHA-256 duplicate detection per patient workspace (duplicate files are warned & skipped)
     - Automatically executes M4 text-layer & date extraction pipeline on accepted files
     """
-    patient = patient_repo.get_patient(db, patient_id)
-    if patient is None:
-        raise HTTPException(status_code=404, detail="Patient workspace not found.")
+    patient = verify_patient_access(patient_id, db=db, current_user=current_user)
 
     if not files:
         raise HTTPException(status_code=400, detail="No files provided for upload.")
@@ -138,12 +137,13 @@ async def upload_reports(
             failed_count += 1
             continue
 
-        # Milestone 4: Run text layer & report date extraction pipeline
+        # Milestone 4: Run text & date extraction pipeline
         extraction = extract_report_from_bytes(content)
 
+        # Create Report record in database
         report = report_repo.create_report(
             db=db,
-            patient_id=patient_id,
+            patient_id=patient.id,
             original_filename=filename,
             file_path=storage_key,
             file_sha256=sha256,
@@ -160,27 +160,27 @@ async def upload_reports(
             extraction_version=extraction.extraction_version,
         )
 
-        # Milestone 5: Persist extracted test rows
+        # Milestone 5: Persist extracted rows into ExtractedResult
         if extraction.rows:
             result_repo.create_results_from_candidates(db, report.id, extraction.rows)
-
-        from app.repositories import audit_repo
-        audit_repo.log_audit_event(
-            db,
-            event_type="report_uploaded",
-            patient_id=patient_id,
-            entity_id=report.id,
-            details=f"filename={filename}, pages={page_count}, status={extraction.status}, rows={len(extraction.rows) if extraction.rows else 0}",
-        )
 
         results.append(
             ReportUploadItem(
                 filename=filename,
                 status="uploaded",
                 report=ReportResponse.model_validate(report),
+                message="Report uploaded and processed successfully.",
             )
         )
         uploaded_count += 1
+
+        audit_repo.log_audit_event(
+            db,
+            event_type="report_uploaded",
+            patient_id=patient.id,
+            entity_id=report.id,
+            details=f"filename={filename}, pages={page_count}, status={extraction.status}",
+        )
 
     return BatchUploadResponse(
         items=results,
@@ -197,12 +197,10 @@ async def upload_reports(
 def list_patient_reports(
     patient_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> ReportListResponse:
     """List all reports uploaded for a patient workspace."""
-    patient = patient_repo.get_patient(db, patient_id)
-    if patient is None:
-        raise HTTPException(status_code=404, detail="Patient workspace not found.")
-
+    verify_patient_access(patient_id, db=db, current_user=current_user)
     reports, total = report_repo.list_reports_for_patient(db, patient_id)
     return ReportListResponse(
         items=[ReportResponse.model_validate(r) for r in reports],
@@ -214,11 +212,10 @@ def list_patient_reports(
 def get_report(
     report_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> ReportResponse:
     """Get metadata for a single report."""
-    report = report_repo.get_report(db, report_id)
-    if report is None:
-        raise HTTPException(status_code=404, detail="Report not found.")
+    report = verify_report_access(report_id, db=db, current_user=current_user)
     return ReportResponse.model_validate(report)
 
 
@@ -227,11 +224,10 @@ def update_report(
     report_id: str,
     data: ReportUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> ReportResponse:
     """Update report metadata (e.g. user confirming/changing report date or lab name)."""
-    report = report_repo.get_report(db, report_id)
-    if report is None:
-        raise HTTPException(status_code=404, detail="Report not found.")
+    report = verify_report_access(report_id, db=db, current_user=current_user)
 
     updates = {}
     if data.report_date is not None:
@@ -272,11 +268,10 @@ def update_report(
 def get_report_file(
     report_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Stream the raw PDF file for viewing in the split-screen review interface."""
-    report = report_repo.get_report(db, report_id)
-    if report is None:
-        raise HTTPException(status_code=404, detail="Report not found.")
+    report = verify_report_access(report_id, db=db, current_user=current_user)
 
     file_path = storage_service.get_file_path(report.file_path)
     if file_path is None or not file_path.exists():
@@ -298,13 +293,11 @@ def add_manual_result(
     report_id: str,
     data: ManualResultCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> ExtractedResultResponse:
     """Manually add a clinical test row to a report."""
-    report = report_repo.get_report(db, report_id)
-    if report is None:
-        raise HTTPException(status_code=404, detail="Report not found.")
-
-    res = result_repo.create_manual_result(db, report_id, data)
+    report = verify_report_access(report_id, db=db, current_user=current_user)
+    res = result_repo.create_manual_result(db, report.id, data)
     return format_result_response(res)
 
 
@@ -312,11 +305,10 @@ def add_manual_result(
 def trigger_extraction(
     report_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> ReportResponse:
     """Re-run M4 text-layer and date extraction on an uploaded report."""
-    report = report_repo.get_report(db, report_id)
-    if report is None:
-        raise HTTPException(status_code=404, detail="Report not found.")
+    report = verify_report_access(report_id, db=db, current_user=current_user)
 
     file_path = storage_service.get_file_path(report.file_path)
     if file_path is None or not file_path.exists():
@@ -351,13 +343,12 @@ def trigger_extraction(
 def get_report_results(
     report_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> ReportResultsResponse:
     """Retrieve all parsed test rows, confidence breakdown, and summary for a report."""
-    report = report_repo.get_report(db, report_id)
-    if report is None:
-        raise HTTPException(status_code=404, detail="Report not found.")
+    report = verify_report_access(report_id, db=db, current_user=current_user)
 
-    rows = result_repo.list_results_for_report(db, report_id)
+    rows = result_repo.list_results_for_report(db, report.id)
 
     total_rows = len(rows)
     needs_review = sum(1 for r in rows if r.review_status == "unreviewed")
@@ -385,17 +376,14 @@ def get_report_results(
     )
 
 
-
-
 @router.get("/reports/{report_id}/extract", response_model=ReportExtractionResponse)
 def get_extraction_details(
     report_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> ReportExtractionResponse:
     """View raw extracted text and date alternatives for debugging."""
-    report = report_repo.get_report(db, report_id)
-    if report is None:
-        raise HTTPException(status_code=404, detail="Report not found.")
+    report = verify_report_access(report_id, db=db, current_user=current_user)
 
     alternatives = []
     if report.date_alternatives:
@@ -426,12 +414,18 @@ def get_extraction_details(
 def delete_report(
     report_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> None:
     """Delete a report and remove its underlying file from storage."""
-    report = report_repo.get_report(db, report_id)
-    if report is None:
-        raise HTTPException(status_code=404, detail="Report not found.")
+    report = verify_report_access(report_id, db=db, current_user=current_user)
 
     storage_service.delete_file(report.file_path)
     report_repo.delete_report(db, report)
+    audit_repo.log_audit_event(
+        db,
+        event_type="report_deleted",
+        patient_id=report.patient_id,
+        entity_id=report.id,
+        details=f"filename={report.original_filename}",
+    )
     return None

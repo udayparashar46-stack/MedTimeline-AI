@@ -20,6 +20,8 @@ from sqlalchemy.pool import StaticPool
 from app.main import app
 from app.db.base import Base
 from app.db.session import get_db
+from app.db.models.user import User
+from app.api.deps import get_current_user
 from app.db.models.patient import Patient
 from app.db.models.report import Report
 from app.db.models.test import Test
@@ -30,6 +32,22 @@ from app.services.storage import StorageService
 from app.services.timeline import build_patient_timeline
 from app.services.exporters.csv_export import sanitize_csv_cell, export_patient_timeline_csv
 from app.services.exporters.pdf_export import export_patient_timeline_pdf
+
+
+def _make_test_user() -> User:
+    u = User.__new__(User)
+    from datetime import datetime, timezone
+    u.__dict__.update({
+        "id": "test-user-synthetic",
+        "email": "synthetic@example.com",
+        "hashed_password": "$2b$12$placeholder",
+        "full_name": "Synthetic Test User",
+        "is_active": True,
+        "is_superuser": False,
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
+    })
+    return u
 
 
 @pytest.fixture()
@@ -55,6 +73,7 @@ def client():
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = _make_test_user
     with TestClient(app) as c:
         yield c, TestingSession
     app.dependency_overrides.clear()

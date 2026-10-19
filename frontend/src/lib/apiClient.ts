@@ -48,7 +48,35 @@ export interface ApiError {
 // Base request helper
 // ---------------------------------------------------------------------------
 
-const BASE = '/api/v1';
+// In production (Vercel), VITE_API_BASE_URL points to the Render backend.
+// In local development, it is empty and Vite's dev proxy handles /api → :8000.
+const API_ORIGIN = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+const BASE = `${API_ORIGIN}/api/v1`;
+
+// ---------------------------------------------------------------------------
+// Auth helpers
+// ---------------------------------------------------------------------------
+
+/** Read the stored JWT access token (set after login). */
+export function getStoredToken(): string | null {
+  return localStorage.getItem('auth_token');
+}
+
+/** Persist a new token after successful login. */
+export function setStoredToken(token: string): void {
+  localStorage.setItem('auth_token', token);
+}
+
+/** Clear token on logout. */
+export function clearStoredToken(): void {
+  localStorage.removeItem('auth_token');
+}
+
+/** Build Authorization header object if a token is available. */
+function getAuthHeaders(): Record<string, string> {
+  const token = getStoredToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 /**
  * Generic fetch wrapper that throws a human-readable Error on non-2xx responses.
@@ -56,7 +84,7 @@ const BASE = '/api/v1';
  */
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders(), ...init?.headers },
     ...init,
   });
 
@@ -219,6 +247,7 @@ export const reportsApi = {
 
     const response = await fetch(`${BASE}/patients/${patientId}/reports`, {
       method: 'POST',
+      headers: getAuthHeaders(),
       body: formData,
     });
 
@@ -617,7 +646,9 @@ export const timelineApi = {
   /** Download CSV file directly as blob. */
   async downloadCsv(patientId: string, includeUnreviewed = false): Promise<{ blob: Blob; filename: string }> {
     const qs = includeUnreviewed ? '?include_unreviewed=true' : '';
-    const res = await fetch(`${BASE}/patients/${patientId}/export/csv${qs}`);
+    const res = await fetch(`${BASE}/patients/${patientId}/export/csv${qs}`, {
+      headers: getAuthHeaders(),
+    });
     if (!res.ok) {
       throw new Error(`Export failed: ${res.status} ${res.statusText}`);
     }
@@ -640,7 +671,9 @@ export const timelineApi = {
   /** Download PDF file directly as blob. */
   async downloadPdf(patientId: string, includeUnreviewed = false): Promise<{ blob: Blob; filename: string }> {
     const qs = includeUnreviewed ? '?include_unreviewed=true' : '';
-    const res = await fetch(`${BASE}/patients/${patientId}/export/pdf${qs}`);
+    const res = await fetch(`${BASE}/patients/${patientId}/export/pdf${qs}`, {
+      headers: getAuthHeaders(),
+    });
     if (!res.ok) {
       throw new Error(`PDF Export failed: ${res.status} ${res.statusText}`);
     }
@@ -712,7 +745,46 @@ export const auditApi = {
   },
 };
 
+// ---------------------------------------------------------------------------
+// Auth API namespace
+// ---------------------------------------------------------------------------
 
+export interface AuthToken {
+  access_token: string;
+  token_type: string;
+}
 
+export interface UserResponse {
+  id: string;
+  email: string;
+  full_name: string | null;
+  is_active: boolean;
+  created_at: string;
+}
 
+export const authApi = {
+  async register(email: string, password: string, fullName?: string): Promise<UserResponse> {
+    return request<UserResponse>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ email, password, full_name: fullName ?? null }),
+    });
+  },
+
+  async login(email: string, password: string): Promise<AuthToken> {
+    const token = await request<AuthToken>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+    setStoredToken(token.access_token);
+    return token;
+  },
+
+  async me(): Promise<UserResponse> {
+    return request<UserResponse>('/auth/me');
+  },
+
+  logout(): void {
+    clearStoredToken();
+  },
+};
 

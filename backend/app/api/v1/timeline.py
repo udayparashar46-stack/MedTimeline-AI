@@ -3,17 +3,19 @@
 Endpoints:
 - GET /patients/{id}/timeline: Matrix of chronological columns and test rows.
 - GET /patients/{id}/export/csv: Download CSV export with disclaimer and sanitized formulas.
+- GET /patients/{id}/export/pdf: Download PDF export with disclaimer and page headers.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.repositories import patient_repo
+from app.db.models.user import User
 from app.schemas.timeline import TimelineResponse
 from app.services.timeline import build_patient_timeline
 from app.services.exporters.csv_export import export_patient_timeline_csv
 from app.services.exporters.pdf_export import export_patient_timeline_pdf
+from app.api.deps import get_current_user, verify_patient_access
 
 router = APIRouter(prefix="/patients", tags=["timeline", "exports"])
 
@@ -26,12 +28,10 @@ def get_patient_timeline(
         description="Include unreviewed results alongside confirmed results in the timeline",
     ),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> TimelineResponse:
     """Retrieve chronological timeline matrix for a patient workspace."""
-    patient = patient_repo.get_patient(db, patient_id)
-    if not patient:
-        raise HTTPException(status_code=404, detail="Patient workspace not found.")
-
+    verify_patient_access(patient_id, db=db, current_user=current_user)
     return build_patient_timeline(db, patient_id=patient_id, include_unreviewed=include_unreviewed)
 
 
@@ -43,11 +43,10 @@ def export_timeline_csv(
         description="Include unreviewed results in the CSV export",
     ),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Download timeline matrix as spreadsheet-friendly CSV with disclaimer."""
-    patient = patient_repo.get_patient(db, patient_id)
-    if not patient:
-        raise HTTPException(status_code=404, detail="Patient workspace not found.")
+    verify_patient_access(patient_id, db=db, current_user=current_user)
 
     csv_content, filename = export_patient_timeline_csv(
         db, patient_id=patient_id, include_unreviewed=include_unreviewed
@@ -82,11 +81,10 @@ def export_timeline_pdf(
         description="Include unreviewed results in the PDF export",
     ),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Download timeline matrix as print-friendly landscape PDF with disclaimer."""
-    patient = patient_repo.get_patient(db, patient_id)
-    if not patient:
-        raise HTTPException(status_code=404, detail="Patient workspace not found.")
+    verify_patient_access(patient_id, db=db, current_user=current_user)
 
     pdf_bytes, filename = export_patient_timeline_pdf(
         db, patient_id=patient_id, include_unreviewed=include_unreviewed
@@ -108,4 +106,3 @@ def export_timeline_pdf(
             "Content-Type": "application/pdf",
         },
     )
-

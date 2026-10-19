@@ -31,7 +31,7 @@
 * **Clinical Hardening Suite & RC (M11)**: 25-scenario synthetic clinical hardening test suite (`test_synthetic_scenarios.py`) validating corrupt/password-protected PDFs, non-OCR boundary detection, `<`/`>` comparators, attached flags, 4-tier date priority, date ambiguity gating, undo stack restoration, analyte separation, unit mismatch detection, and sub-2.0s timeline response.
 * **Settings & Privacy Center (M11)**: Dedicated Settings & About page verifying local-only `127.0.0.1` binding, zero external trackers/analytics, zero external CDNs/fonts, deterministic local parsing, and documented clinical boundaries.
 * **Audit Logging & Portability (M12)**: Isolated non-clinical lifecycle audit event logging (`audit_events` table), full patient workspace JSON archive export/import (`/api/v1/patients/{id}/export/archive`), and typed-confirmation `"DELETE EVERYTHING"` system reset cascade purging all database rows and uploaded files with automatic canonical test re-seeding.
-* **Automated Tests**: **126 Pytest backend tests** (100% passing across 11 test modules) and **52 Vitest frontend tests** (100% passing across 9 test files) with strict TypeScript type-checking (0 errors) and clean Vite production build.
+* **Automated Tests**: **141 Pytest backend tests** (100% passing across 12 test modules including full authentication & tenant isolation suite) and **52 Vitest frontend tests** (100% passing across 9 test files) with strict TypeScript type-checking (0 errors) and clean Vite production build.
 
 ---
 
@@ -154,7 +154,48 @@ medtimeline-ai/
 
 ---
 
+## Production Deployment (HTTPS)
+
+MedTimeline AI is ready for public cloud deployment using **Vercel** for the frontend and **Render** for the backend with PostgreSQL and persistent upload disk storage.
+
+### Architecture & Security Safeguards
+
+- **Authentication**: JWT Bearer token authentication with bcrypt password hashing (`/api/v1/auth/register`, `/api/v1/auth/login`, `/api/v1/auth/me`).
+- **Workspace Tenant Isolation**: Strict server-side authorization on all endpoints. Accessing another user's workspace returns 404 (not 403) to prevent ID enumeration.
+- **Production Database**: Automatic detection and support for PostgreSQL via `DATABASE_URL` (with fallback to SQLite for local use).
+- **Persistent Storage**: Render persistent disk configured at `/var/data/uploads` so PDFs survive service restarts.
+- **Strict CORS**: Dynamic comma-separated whitelist configured via `BACKEND_CORS_ORIGINS`.
+
+### 1. Backend Deployment (Render)
+
+1. Connect your GitHub repository to [Render](https://render.com).
+2. Create a new **Blueprint** service using `render.yaml`, or create a **Web Service**:
+   - **Environment**: Python 3
+   - **Build Command**: `pip install -r backend/requirements.txt`
+   - **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+   - **Root Directory**: `backend`
+   - **Health Check Path**: `/api/v1/health`
+3. Add a **PostgreSQL Database** in Render and set `DATABASE_URL` on the web service.
+4. Add a **Persistent Disk** (1 GB) mounted at `/var/data` with `UPLOAD_DIR=/var/data/uploads`.
+5. Set the following environment variables:
+   - `SECRET_KEY`: Long random string (or click "Generate")
+   - `ENVIRONMENT`: `production`
+   - `AUTH_REQUIRED`: `true`
+   - `BACKEND_CORS_ORIGINS`: `https://your-frontend.vercel.app`
+
+### 2. Frontend Deployment (Vercel)
+
+1. Import your GitHub repository to [Vercel](https://vercel.com).
+2. Set **Root Directory** to `frontend`.
+3. Framework Preset: **Vite**.
+4. Configure Environment Variable:
+   - `VITE_API_BASE_URL`: `https://your-backend.onrender.com` (no trailing slash).
+5. Deploy. The `vercel.json` ensures all client-side routes redirect cleanly to `index.html`.
+
+---
+
 ## Disclaimer
 
 Generated from user-uploaded reports. Not medical advice. Verify against original reports.
+
 

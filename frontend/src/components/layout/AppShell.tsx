@@ -4,11 +4,15 @@ import { DisclaimerBanner } from './DisclaimerBanner';
 import { Badge } from '../ui/Badge';
 import { Button, IconButton } from '../ui/Button';
 
+import { UserResponse } from '../../lib/apiClient';
+
 export interface AppShellProps {
   currentRoute: string;
   onRouteChange: (route: string) => void;
   connectionStatus: 'connecting' | 'connected' | 'disconnected';
   onRetryConnection: () => void;
+  currentUser?: UserResponse | null;
+  onLogout?: () => void;
   children: React.ReactNode;
 }
 
@@ -17,6 +21,8 @@ export const AppShell: React.FC<AppShellProps> = ({
   onRouteChange,
   connectionStatus,
   onRetryConnection,
+  currentUser,
+  onLogout,
   children,
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -105,6 +111,19 @@ export const AppShell: React.FC<AppShellProps> = ({
               {connectionStatus === 'disconnected' && 'Disconnected'}
               {connectionStatus === 'connecting' && 'Connecting...'}
             </Badge>
+
+            {currentUser && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>
+                  {currentUser.email}
+                </span>
+                {onLogout && (
+                  <Button variant="ghost" size="sm" onClick={onLogout}>
+                    Sign Out
+                  </Button>
+                )}
+              </div>
+            )}
 
             <Button variant="secondary" size="sm" onClick={onRetryConnection}>
               Check Connection

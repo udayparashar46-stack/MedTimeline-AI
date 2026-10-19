@@ -22,7 +22,25 @@ from app.main import app
 from app.core.config import settings
 from app.db.base import Base
 from app.db.session import get_db
+from app.db.models.user import User
+from app.api.deps import get_current_user
 from app.services.storage import storage_service
+
+
+def _make_test_user() -> User:
+    u = User.__new__(User)
+    from datetime import datetime, timezone
+    u.__dict__.update({
+        "id": "test-user-reports",
+        "email": "reports@example.com",
+        "hashed_password": "$2b$12$placeholder",
+        "full_name": "Reports Test User",
+        "is_active": True,
+        "is_superuser": False,
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
+    })
+    return u
 
 
 def create_synthetic_pdf(text: str = "Sample Lab Report - Fictional Data") -> bytes:
@@ -58,6 +76,7 @@ def test_env():
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = _make_test_user
     with TestClient(app) as client:
         yield client, temp_dir.name
     app.dependency_overrides.clear()

@@ -13,11 +13,12 @@ import { DashboardPage } from './pages/DashboardPage';
 import { StyleguidePage } from './pages/StyleguidePage';
 import { PatientsPage } from './pages/PatientsPage';
 import { PatientWorkspacePage } from './pages/PatientWorkspacePage';
-
 import { UploadPage } from './pages/UploadPage';
 import { MappingPage } from './pages/MappingPage';
 import { TimelinePage } from './pages/TimelinePage';
 import { SettingsPage } from './pages/SettingsPage';
+import { AuthPage } from './pages/AuthPage';
+import { authApi, getStoredToken, type UserResponse } from './lib/apiClient';
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
 
@@ -28,7 +29,9 @@ interface Route {
 }
 
 function parseRoute(route: string): Route {
-  // Support 'patient/some-uuid' for workspace detail view
+  if (route === 'login' || route === 'register') {
+    return { page: route };
+  }
   if (route.startsWith('patient/')) {
     return { page: 'patient', id: route.slice('patient/'.length) };
   }
@@ -41,16 +44,32 @@ function parseRoute(route: string): Route {
   return { page: route };
 }
 
+const API_ORIGIN = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+
 export function App() {
   const [currentRoute, setCurrentRoute] = useState<string>('dashboard');
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserResponse | null>(() => {
+    const token = getStoredToken();
+    if (token) {
+      return {
+        id: 'user-cached',
+        email: 'user@medtimeline.local',
+        full_name: null,
+        is_active: true,
+        created_at: '',
+      };
+    }
+    return null;
+  });
+  const [authLoading, setAuthLoading] = useState<boolean>(false);
 
   const checkHealth = async () => {
     setStatus('connecting');
     setErrorDetails(null);
     try {
-      const response = await fetch('/api/v1/health');
+      const response = await fetch(`${API_ORIGIN}/api/v1/health`);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
@@ -66,9 +85,38 @@ export function App() {
     }
   };
 
+  const loadCurrentUser = async () => {
+    const token = getStoredToken();
+    if (!token) {
+      setCurrentUser(null);
+      setAuthLoading(false);
+      return;
+    }
+    try {
+      const user = await authApi.me();
+      setCurrentUser(user);
+    } catch (err: unknown) {
+      // Only logout and clear session if the server explicitly returned 401 Unauthorized
+      const isUnauthorized = err instanceof Error && (err.message.includes('401') || err.message.toLowerCase().includes('unauthorized'));
+      if (isUnauthorized) {
+        authApi.logout();
+        setCurrentUser(null);
+      }
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   useEffect(() => {
     checkHealth();
+    loadCurrentUser();
   }, []);
+
+  const handleLogout = () => {
+    authApi.logout();
+    setCurrentUser(null);
+    setCurrentRoute('login');
+  };
 
   const navigateToPatient = (patientId: string) => {
     setCurrentRoute(`patient/${patientId}`);
@@ -133,6 +181,28 @@ export function App() {
         );
       case 'settings':
         return <SettingsPage onNavigateTo={setCurrentRoute} />;
+      case 'login':
+        return (
+          <AuthPage
+            isRegister={false}
+            onSuccess={() => {
+              loadCurrentUser();
+              setCurrentRoute('dashboard');
+            }}
+            onSwitchMode={() => setCurrentRoute('register')}
+          />
+        );
+      case 'register':
+        return (
+          <AuthPage
+            isRegister={true}
+            onSuccess={() => {
+              loadCurrentUser();
+              setCurrentRoute('dashboard');
+            }}
+            onSwitchMode={() => setCurrentRoute('login')}
+          />
+        );
       default:
         return (
           <DashboardPage
@@ -145,12 +215,47 @@ export function App() {
     }
   };
 
+  if (authLoading) {
+    return (
+      <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg)' }}>
+        <div style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Loading workspace...</div>
+      </div>
+    );
+  }
+
+  // If unauthenticated and on a protected page, render AuthPage in an uncluttered view or inside shell
+  const isAuthRoute = currentRoute === 'login' || currentRoute === 'register';
+
+  if (!currentUser && !isAuthRoute) {
+    return (
+      <AppShell
+        currentRoute="login"
+        onRouteChange={setCurrentRoute}
+        connectionStatus={status}
+        onRetryConnection={checkHealth}
+        currentUser={null}
+        onLogout={handleLogout}
+      >
+        <AuthPage
+          isRegister={false}
+          onSuccess={() => {
+            loadCurrentUser();
+            setCurrentRoute('dashboard');
+          }}
+          onSwitchMode={() => setCurrentRoute('register')}
+        />
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell
       currentRoute={parseRoute(currentRoute).page}
       onRouteChange={setCurrentRoute}
       connectionStatus={status}
       onRetryConnection={checkHealth}
+      currentUser={currentUser}
+      onLogout={handleLogout}
     >
       {renderContent()}
     </AppShell>

@@ -5,7 +5,7 @@ and the logic is easy to test in isolation.
 """
 
 from sqlalchemy.orm import Session
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 
 from app.db.models.patient import Patient
 from app.schemas.patient import PatientCreate, PatientUpdate
@@ -23,9 +23,16 @@ def list_patients(
     search: str | None = None,
     skip: int = 0,
     limit: int = 100,
+    owner_id: str | None = None,
 ) -> tuple[list[Patient], int]:
-    """Return a filtered, paginated list and the total count."""
+    """Return a filtered, paginated list and the total count, scoped to owner_id if provided."""
     base_query = select(Patient).where(Patient.is_deleted == False)
+
+    if owner_id:
+        # User sees workspaces they own or unowned legacy workspaces
+        base_query = base_query.where(
+            or_(Patient.owner_id == owner_id, Patient.owner_id.is_(None))
+        )
 
     if search:
         term = f"%{search.lower()}%"
@@ -43,13 +50,14 @@ def list_patients(
     return list(patients), total
 
 
-def create_patient(db: Session, data: PatientCreate) -> Patient:
-    """Insert a new patient row and return it."""
+def create_patient(db: Session, data: PatientCreate, owner_id: str | None = None) -> Patient:
+    """Insert a new patient row with owner_id and return it."""
     patient = Patient(
         display_name=data.display_name,
         date_of_birth=data.date_of_birth,
         sex=data.sex,
         notes=data.notes,
+        owner_id=owner_id,
     )
     db.add(patient)
     db.commit()
@@ -79,4 +87,3 @@ def delete_patient(db: Session, patient: Patient) -> None:
 
     patient.is_deleted = True
     db.commit()
-

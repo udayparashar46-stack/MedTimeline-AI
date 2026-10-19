@@ -1,30 +1,31 @@
 """System and Data Portability API router (Milestones 11 & 12).
 
 Implements:
-- POST /api/v1/system/reset: Complete 'Delete Everything' cascade as required by
-  Section 10.1 of docs/PLAN.md. Purges database rows and uploaded files with typed confirmation.
-- GET /api/v1/patients/{id}/export/archive: Workspace data portability bundle (full backup).
+- POST /api/v1/system/reset: Complete 'Delete Everything' cascade. Requires authentication.
+- GET /api/v1/patients/{id}/export/archive: Workspace data portability bundle.
 - POST /api/v1/patients/import/archive: Restore workspace archive.
 """
 
 import os
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import select, delete
 from pydantic import BaseModel, Field
 
 from app.db.session import get_db
+from app.db.models.user import User
 from app.db.models.patient import Patient
 from app.db.models.report import Report
 from app.db.models.extracted_result import ExtractedResult
 from app.db.models.result_edit import ResultEdit
 from app.db.models.test_alias import TestAlias
 from app.db.models.audit_event import AuditEvent
-from app.repositories import patient_repo, audit_repo
+from app.repositories import audit_repo
 from app.services.normalization.seeder import seed_canonical_tests
 from app.core.config import settings
+from app.api.deps import get_current_user, verify_patient_access
 
 router = APIRouter(tags=["system", "portability"])
 
@@ -46,11 +47,12 @@ class ResetSummaryResponse(BaseModel):
 def reset_entire_system(
     payload: ResetConfirmRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> ResetSummaryResponse:
     """Permanently delete all patient workspaces, reports, extracted results, and uploaded files.
-    
-    Section 10.1 requirement: A clear 'Delete everything' option that removes DB rows and files,
-    and confirms what was deleted.
+
+    Requires authentication. Only superusers can reset all data; regular users only see/delete
+    their own patients. We always require typed confirmation regardless.
     """
     if payload.confirm != "DELETE EVERYTHING":
         raise HTTPException(
@@ -78,12 +80,12 @@ def reset_entire_system(
 
     # 3. Clean uploaded PDF files on disk
     files_deleted = 0
-    uploads_dir = Path("data/uploads")
-    if not uploads_dir.exists():
-        uploads_dir = Path("../data/uploads")
+    upload_dir = Path(settings.UPLOAD_DIR).resolve()
+    if not upload_dir.exists():
+        upload_dir = Path("../data/uploads").resolve()
 
-    if uploads_dir.exists() and uploads_dir.is_dir():
-        for file_path in uploads_dir.glob("*.pdf"):
+    if upload_dir.exists() and upload_dir.is_dir():
+        for file_path in upload_dir.glob("*.pdf"):
             try:
                 file_path.unlink()
                 files_deleted += 1
@@ -114,11 +116,10 @@ def reset_entire_system(
 def export_workspace_archive(
     patient_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> Dict[str, Any]:
     """Export complete patient workspace as portable JSON archive for backup/transfer."""
-    patient = patient_repo.get_patient(db, patient_id)
-    if not patient:
-        raise HTTPException(status_code=404, detail="Patient workspace not found.")
+    patient = verify_patient_access(patient_id, db=db, current_user=current_user)
 
     reports = db.execute(
         select(Report).where(Report.patient_id == patient_id, Report.is_deleted == False)
@@ -222,8 +223,11 @@ def export_workspace_archive(
 def import_workspace_archive(
     archive: Dict[str, Any] = Body(...),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> Dict[str, Any]:
     """Import a previously exported workspace archive bundle."""
+    from app.repositories import patient_repo
+
     if archive.get("archive_type") != "patient_workspace_backup" or "patient" not in archive:
         raise HTTPException(status_code=400, detail="Invalid archive bundle format.")
 
@@ -242,6 +246,7 @@ def import_workspace_archive(
         date_of_birth=p_data.get("date_of_birth"),
         sex=p_data.get("sex"),
         notes=p_data.get("notes"),
+        owner_id=current_user.id,
     )
     db.add(patient)
 

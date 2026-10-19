@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.db.models.user import User
 from app.repositories import result_repo
 from app.schemas.result import (
     ExtractedResultResponse,
@@ -19,6 +20,7 @@ from app.schemas.result import (
     BulkConfirmResponse,
     ResultEditResponse,
 )
+from app.api.deps import get_current_user, verify_result_access, verify_report_access
 
 router = APIRouter(prefix="/results", tags=["results"])
 
@@ -77,11 +79,10 @@ def update_result(
     result_id: str,
     data: ResultUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> ExtractedResultResponse:
     """Update result fields or review status. Creates audit log entries in ResultEdit."""
-    res = result_repo.get_result(db, result_id)
-    if res is None:
-        raise HTTPException(status_code=404, detail="Result row not found.")
+    res = verify_result_access(result_id, db=db, current_user=current_user)
 
     if data.review_status and data.review_status not in [
         "unreviewed",
@@ -103,11 +104,10 @@ def update_result(
 def undo_result_edit(
     result_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> ExtractedResultResponse:
     """Revert the most recent edit applied to this result row."""
-    res = result_repo.get_result(db, result_id)
-    if res is None:
-        raise HTTPException(status_code=404, detail="Result row not found.")
+    res = verify_result_access(result_id, db=db, current_user=current_user)
 
     updated, undone_edit = result_repo.undo_last_edit(db, res)
     if undone_edit is None:
@@ -120,8 +120,11 @@ def undo_result_edit(
 def bulk_confirm(
     data: BulkConfirmRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> BulkConfirmResponse:
     """Bulk confirm unreviewed rows in a report (e.g. all high-confidence rows)."""
+    verify_report_access(data.report_id, db=db, current_user=current_user)
+
     confirmed = result_repo.bulk_confirm_results(
         db=db,
         report_id=data.report_id,

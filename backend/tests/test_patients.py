@@ -1,47 +1,13 @@
 """Integration tests for the /api/v1/patients endpoints.
 
-Each test uses its own in-memory SQLite database so tests are fully
-isolated and do not touch the real data/ folder.
+Each test uses its own in-memory SQLite database via the shared conftest fixture,
+which also bypasses auth by overriding the get_current_user dependency.
 """
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
-from app.main import app
-from app.db.base import Base
-from app.db.session import get_db
-
-
-# ---------------------------------------------------------------------------
-# Per-test in-memory database fixture
-# ---------------------------------------------------------------------------
-
-@pytest.fixture()
-def client():
-    """Return a TestClient wired to a fresh in-memory SQLite database."""
-    engine_mem = create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(bind=engine_mem)
-    TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=engine_mem)
-
-    def override_get_db():
-        db = TestingSession()
-        try:
-            yield db
-        finally:
-            db.close()
-
-    app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as c:
-        yield c
-    app.dependency_overrides.clear()
-    Base.metadata.drop_all(bind=engine_mem)
+# client fixture provided by conftest.py
 
 
 # ---------------------------------------------------------------------------

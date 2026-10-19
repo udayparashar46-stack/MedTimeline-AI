@@ -1,5 +1,7 @@
 """Application configuration settings for MedTimeline AI."""
 
+from typing import Any
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -7,17 +9,40 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "MedTimeline AI"
     API_V1_STR: str = "/api/v1"
 
-    # Bind strictly to localhost (127.0.0.1) as mandated by plan Section 10.1
+    # Environment
+    ENVIRONMENT: str = "development"
     HOST: str = "127.0.0.1"
     PORT: int = 8000
 
-    # Strict CORS allow-list: no wildcard origins allowed
+    # Authentication & Security
+    SECRET_KEY: str = "medtimeline-insecure-dev-secret-change-in-production-use-strong-secret"
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+    AUTH_REQUIRED: bool = True
+
+    # Strict CORS allow-list: accepts list or comma-separated string
     BACKEND_CORS_ORIGINS: list[str] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ]
 
-    # SQLite database lives in the data/ folder which is git-ignored
+    @field_validator("BACKEND_CORS_ORIGINS", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, v: Any) -> list[str]:
+        if isinstance(v, str):
+            if v.startswith("["):
+                import json
+                try:
+                    return json.loads(v)
+                except Exception:
+                    pass
+            return [i.strip() for i in v.split(",") if i.strip()]
+        elif isinstance(v, list):
+            return v
+        return ["http://localhost:5173", "http://127.0.0.1:5173"]
+
+    # Database configuration: support SQLite file or PostgreSQL connection URL
+    DATABASE_URL: str | None = None
     DATABASE_DIR: str = "../data"
     DATABASE_FILE: str = "medtimeline.db"
 
@@ -26,7 +51,7 @@ class Settings(BaseSettings):
     MAX_FILE_SIZE_BYTES: int = 20 * 1024 * 1024  # 20 MB limit
     MAX_FILES_PER_BATCH: int = 25
 
-    model_config = SettingsConfigDict(case_sensitive=True)
+    model_config = SettingsConfigDict(case_sensitive=True, env_file=".env", extra="ignore")
 
 
 settings = Settings()
