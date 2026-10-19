@@ -329,6 +329,37 @@ describe('M8 & M9: TimelinePage and CSV Export UI', () => {
     ).toBeInTheDocument();
   });
 
+  it('clicking Export PDF triggers download', async () => {
+    const mockBlob = new Blob(['%PDF-1.4 mock pdf content'], { type: 'application/pdf' });
+    const downloadPdfSpy = vi.spyOn(timelineApi, 'downloadPdf').mockResolvedValue({
+      blob: mockBlob,
+      filename: 'SarahTimeline_lab_timeline.pdf',
+    });
+
+    window.URL.createObjectURL = vi.fn().mockReturnValue('blob:mock-pdf-url');
+    window.URL.revokeObjectURL = vi.fn();
+    const anchorClickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    render(<TimelinePage initialPatientId="patient-test-timeline" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Hemoglobin')).toBeInTheDocument();
+    });
+
+    const exportPdfBtn = screen.getByRole('button', { name: /Export Timeline PDF/i });
+    expect(exportPdfBtn).not.toBeDisabled();
+    fireEvent.click(exportPdfBtn);
+
+    await waitFor(() => {
+      expect(downloadPdfSpy).toHaveBeenCalledWith('patient-test-timeline', false);
+      expect(anchorClickSpy).toHaveBeenCalled();
+    });
+
+    expect(
+      await screen.findByText(/Exported SarahTimeline_lab_timeline.pdf successfully!/i)
+    ).toBeInTheDocument();
+  });
+
   it('shows empty state when workspace has no timeline data', async () => {
     vi.spyOn(timelineApi, 'get').mockResolvedValue({
       patient_id: 'patient-test-timeline',

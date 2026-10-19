@@ -630,7 +630,89 @@ export const timelineApi = {
     }
     return { blob, filename };
   },
+
+  /** Get PDF download URL with appropriate filter parameter. */
+  getPdfExportUrl(patientId: string, includeUnreviewed = false): string {
+    const qs = includeUnreviewed ? '?include_unreviewed=true' : '';
+    return `${BASE}/patients/${patientId}/export/pdf${qs}`;
+  },
+
+  /** Download PDF file directly as blob. */
+  async downloadPdf(patientId: string, includeUnreviewed = false): Promise<{ blob: Blob; filename: string }> {
+    const qs = includeUnreviewed ? '?include_unreviewed=true' : '';
+    const res = await fetch(`${BASE}/patients/${patientId}/export/pdf${qs}`);
+    if (!res.ok) {
+      throw new Error(`PDF Export failed: ${res.status} ${res.statusText}`);
+    }
+    const blob = await res.blob();
+    const dispo = res.headers.get('content-disposition');
+    let filename = 'timeline.pdf';
+    if (dispo) {
+      const match = dispo.match(/filename="?([^"]+)"?/);
+      if (match && match[1]) filename = match[1];
+    }
+    return { blob, filename };
+  },
 };
+
+export interface ResetSummaryResponse {
+  status: string;
+  patients_deleted: number;
+  reports_deleted: number;
+  results_deleted: number;
+  files_deleted: number;
+  message: string;
+}
+
+export interface AuditEventItem {
+  id: string;
+  patient_id: string | null;
+  event_type: string;
+  entity_id: string | null;
+  details: string | null;
+  created_at: string;
+}
+
+export interface AuditEventListResponse {
+  items: AuditEventItem[];
+  total: number;
+}
+
+export const systemApi = {
+  /** Execute 'Delete Everything' cascade to permanently erase all records and files. */
+  reset(confirm: string): Promise<ResetSummaryResponse> {
+    return request<ResetSummaryResponse>('/system/reset', {
+      method: 'POST',
+      body: JSON.stringify({ confirm }),
+    });
+  },
+
+  /** Export complete workspace as a JSON backup archive. */
+  exportArchive(patientId: string): Promise<Record<string, unknown>> {
+    return request<Record<string, unknown>>(`/patients/${patientId}/export/archive`);
+  },
+
+  /** Restore workspace from JSON backup archive. */
+  importArchive(archive: Record<string, unknown>): Promise<{ status: string; patient_id: string; patient_name: string }> {
+    return request<{ status: string; patient_id: string; patient_name: string }>('/patients/import/archive', {
+      method: 'POST',
+      body: JSON.stringify(archive),
+    });
+  },
+};
+
+export const auditApi = {
+  /** List non-clinical lifecycle audit events. */
+  list(patientId?: string, eventType?: string): Promise<AuditEventListResponse> {
+    const params = new URLSearchParams();
+    if (patientId) params.append('patient_id', patientId);
+    if (eventType) params.append('event_type', eventType);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return request<AuditEventListResponse>(`/audit-events${qs}`);
+  },
+};
+
+
 
 
 

@@ -65,8 +65,9 @@ export const TimelinePage: React.FC<TimelinePageProps> = ({
     columnLab: string | null;
   } | null>(null);
 
-  // CSV download state
+  // CSV & PDF download state
   const [isExportingCsv, setIsExportingCsv] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [exportSuccessMsg, setExportSuccessMsg] = useState<string | null>(null);
 
   // 1. Load patients
@@ -137,6 +138,30 @@ export const TimelinePage: React.FC<TimelinePageProps> = ({
       alert(err instanceof Error ? err.message : 'Failed to download CSV export.');
     } finally {
       setIsExportingCsv(false);
+    }
+  };
+
+  // PDF export handler
+  const handleExportPdf = async () => {
+    if (!selectedPatientId) return;
+    setIsExportingPdf(true);
+    try {
+      const { blob, filename } = await timelineApi.downloadPdf(selectedPatientId, includeUnreviewed);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+
+      setExportSuccessMsg(`Exported ${filename} successfully!`);
+      setTimeout(() => setExportSuccessMsg(null), 4000);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to download PDF export.');
+    } finally {
+      setIsExportingPdf(false);
     }
   };
 
@@ -240,6 +265,21 @@ export const TimelinePage: React.FC<TimelinePageProps> = ({
             aria-label="Export Timeline CSV"
           >
             {isExportingCsv ? 'Exporting...' : 'Export CSV'}
+          </Button>
+
+          <Button
+            variant="secondary"
+            onClick={handleExportPdf}
+            disabled={
+              isExportingPdf ||
+              !timelineData ||
+              timelineData.columns.length === 0 ||
+              timelineData.rows.length === 0
+            }
+            leftIcon="📄"
+            aria-label="Export Timeline PDF"
+          >
+            {isExportingPdf ? 'Exporting PDF...' : 'Export PDF'}
           </Button>
 
           {onNavigateToWorkspace && selectedPatientId && (

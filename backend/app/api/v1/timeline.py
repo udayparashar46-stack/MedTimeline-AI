@@ -13,6 +13,7 @@ from app.repositories import patient_repo
 from app.schemas.timeline import TimelineResponse
 from app.services.timeline import build_patient_timeline
 from app.services.exporters.csv_export import export_patient_timeline_csv
+from app.services.exporters.pdf_export import export_patient_timeline_pdf
 
 router = APIRouter(prefix="/patients", tags=["timeline", "exports"])
 
@@ -55,6 +56,14 @@ def export_timeline_csv(
     # Prepend UTF-8 BOM (\ufeff) so Microsoft Excel opens it seamlessly without character corruption
     csv_bytes = b"\xef\xbb\xbf" + csv_content.encode("utf-8")
 
+    from app.repositories import audit_repo
+    audit_repo.log_audit_event(
+        db,
+        event_type="timeline_exported_csv",
+        patient_id=patient_id,
+        details=f"filename={filename}, include_unreviewed={include_unreviewed}",
+    )
+
     return Response(
         content=csv_bytes,
         media_type="text/csv",
@@ -63,3 +72,40 @@ def export_timeline_csv(
             "Content-Type": "text/csv; charset=utf-8",
         },
     )
+
+
+@router.get("/{patient_id}/export/pdf")
+def export_timeline_pdf(
+    patient_id: str,
+    include_unreviewed: bool = Query(
+        False,
+        description="Include unreviewed results in the PDF export",
+    ),
+    db: Session = Depends(get_db),
+):
+    """Download timeline matrix as print-friendly landscape PDF with disclaimer."""
+    patient = patient_repo.get_patient(db, patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient workspace not found.")
+
+    pdf_bytes, filename = export_patient_timeline_pdf(
+        db, patient_id=patient_id, include_unreviewed=include_unreviewed
+    )
+
+    from app.repositories import audit_repo
+    audit_repo.log_audit_event(
+        db,
+        event_type="timeline_exported_pdf",
+        patient_id=patient_id,
+        details=f"filename={filename}, include_unreviewed={include_unreviewed}",
+    )
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Type": "application/pdf",
+        },
+    )
+

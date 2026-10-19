@@ -171,3 +171,40 @@ This file tracks key technical decisions, rationale, and deviations from the ori
 * **Choice**: Prepend the UTF-8 Byte Order Mark (`\xef\xbb\xbf`) to exported CSV responses.
 * **Rationale**: Microsoft Excel historically opens standard UTF-8 CSVs in Windows-1252 or ANSI mode unless the BOM is present, which causes corruption of non-ASCII characters (such as degree symbols, Greek letters like µg/mL, or special accents). The BOM ensures seamless out-of-the-box rendering.
 
+---
+
+## 2026-10-19: M10 PDF Export
+
+### Decision 33: PyMuPDF Native Landscape PDF Generation & Column Chunking
+* **Choice**: Generate landscape A4 PDF export directly using PyMuPDF (`fitz`), with chunking for wide tables (>5 report date columns) and multi-page row pagination (>20 test rows). Header columns are repeated across pages, missing cells are strictly blank (zero interpolation per Principle 1), out-of-range values feature soft highlight tints, and every page includes page numbering ("Page X of Y") and the mandatory medical disclaimer footer.
+* **Rationale**: PyMuPDF is already our trusted, high-performance C-based dependency from M3/M4/M5, avoiding introducing heavy headless browser dependencies (like Puppeteer, Playwright, or Weasyprint). Column chunking guarantees wide timelines across months or years never suffer from truncated columns or microscopic unreadable text.
+
+---
+
+## 2026-10-19: M11 Hardening & Release Candidate
+
+### Decision 34: Comprehensive Synthetic Clinical Hardening Suite
+* **Choice**: Build a dedicated 25-scenario synthetic clinical hardening test suite in `backend/tests/test_synthetic_scenarios.py` covering malformed PDFs, password protection, magic bytes, patient isolation, wrapped lab names, `<`/`>` comparators, attached flags, missing units, date priority tiers, date ambiguity gating, immutable edit audit overlays, undo stack restoration, analyte separation ("Bilirubin Total" vs "Bilirubin Direct"), unit mismatch warnings, zero-invention sparse matrix guarantees, CSV formula neutralization, PDF disclaimer compliance, and sub-2.0s timeline response performance.
+* **Rationale**: Validates production readiness without ever using real patient data. Provides regression confidence across all Guiding Principles and clinical edge cases.
+
+### Decision 35: Localhost Privacy & Settings Center
+* **Choice**: Implement `SettingsPage` with explicit technical privacy attestations (`127.0.0.1` binding, zero analytics, zero external CDNs or Google Fonts, deterministic parsing with no LLMs, anonymous UUID storage) alongside clear clinical boundaries ("Not a medical device", "Not medical advice").
+* **Rationale**: Directly enforces Section 3.1, Section 10.1, and Guiding Principle 5/6, giving users transparent visibility into the local operational model and limitations.
+
+---
+
+## 2026-10-19: M12 Data Portability, Audit Logging & System Reset
+
+### Decision 36: Non-Clinical AuditEvent Logging Isolation
+* **Choice**: Implement an `audit_events` table and service that logs only metadata lifecycle events (`patient_created`, `report_uploaded`, `report_deleted`, `timeline_exported_csv`, `timeline_exported_pdf`, `system_reset`). No clinical lab names, test results, reference ranges, or patient notes are ever written to the audit log.
+* **Rationale**: Implements Section 7 and Section 10.1. Audit trails provide accountability and operational traceability without creating secondary stores of sensitive medical data.
+
+### Decision 37: Typed Confirmation "Delete Everything" System Reset Cascade
+* **Choice**: Implement `POST /api/v1/system/reset` requiring the exact JSON payload `{"confirm": "DELETE EVERYTHING"}`. It executes a foreign-key aware cascade deletion across all tables (`result_edits`, `extracted_results`, `reports`, `test_aliases`, `tests`, `patients`, `audit_events`), purges all uploaded PDF files from disk, re-seeds default canonical tests from `aliases.json`, and returns exact deletion metrics.
+* **Rationale**: Fulfills Section 3.1 and Section 10.1 ("Delete Everything" action). Provides users with complete data sovereignty to purge all local data in a single irreversible, confirmed action.
+
+### Decision 38: Workspace JSON Archive Portability
+* **Choice**: Implement `GET /api/v1/patients/{id}/export/archive` and `POST /api/v1/patients/import/archive` supporting complete export and lossless re-import of patient workspaces, including report metadata, extracted results, canonical mappings, and result edit audit history.
+* **Rationale**: Implements Section 6.4 data portability requirements, ensuring patients and users own their data and can backup or migrate workspaces without vendor lock-in.
+
+

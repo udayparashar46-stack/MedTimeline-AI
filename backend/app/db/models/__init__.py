@@ -6,5 +6,6 @@ from app.db.models.extracted_result import ExtractedResult
 from app.db.models.result_edit import ResultEdit
 from app.db.models.test import Test
 from app.db.models.test_alias import TestAlias
+from app.db.models.audit_event import AuditEvent
 
-__all__ = ["Patient", "Report", "ExtractedResult", "ResultEdit", "Test", "TestAlias"]
+__all__ = ["Patient", "Report", "ExtractedResult", "ResultEdit", "Test", "TestAlias", "AuditEvent"]

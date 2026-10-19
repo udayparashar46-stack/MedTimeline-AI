@@ -330,9 +330,113 @@ Keep track of acceptance testing by hand for each milestone. Tick items off as t
   3. Verify success banner displays: `Exported <filename> successfully!`.
   4. Open the CSV in Excel or a text editor and verify columns, clean formatting, and disclaimer footer.
 
-- [ ] **Automated Tests**:
-  1. `pytest` in `backend/` → **84 passed** (1 health + 15 patient + 10 upload/storage + 14 extraction + 15 row parsing + 13 review/correction + 8 normalization + 8 timeline/csv).
-  2. `npm test` in `frontend/` → **46 passed** (6 app shell + 7 patient + 4 upload + 3 extraction + 2 row parsing + 8 review + 8 mapping + 8 timeline).
-  3. `npm run type-check` in `frontend/` → **0 errors**.
-  4. `npm run build` in `frontend/` → **0 errors**, production bundle ~298 KB JS.
+---
+
+## M10: PDF Export
+
+- [ ] **Landscape PDF Export Generation**:
+  1. Open `http://localhost:5173/` and navigate to a patient workspace with reports.
+  2. Click "View Timeline" in the sidebar or workspace card.
+  3. Click "Export PDF" in the header toolbar.
+  4. Verify the loading spinner activates during generation.
+  5. Verify the browser triggers a download for `<patient_name>_timeline_<date>.pdf`.
+  6. Open the downloaded PDF in Adobe Acrobat, Edge, or Chrome.
+  7. Confirm document orientation is Landscape A4 (`842 x 595` pt).
+  8. Confirm the header displays: Patient Name, DOB, Sex, Generation Timestamp, and Active Filter Mode ("Confirmed results only" or "Including unreviewed results").
+  9. Confirm table columns show chronological dates and laboratory/report names.
+  10. Confirm table headers repeat across pages for multi-page timelines.
+  11. Confirm missing cells are completely blank (`""`), with zero invented or interpolated numbers.
+  12. Confirm out-of-range flags have soft background highlighting (`#FDE8E6` for High, `#E6F0FD` for Low).
+  13. Confirm each page includes footer page numbering: "Page X of Y".
+  14. Confirm the mandatory disclaimer appears verbatim on every page:
+      `"Generated from user-uploaded reports. Not medical advice. Verify against original reports."`
+
+- [ ] **Wide Timeline Column Chunking**:
+  1. Test with a patient with >5 report dates.
+  2. Verify PDF exporter chunks columns across page sets without text truncation or clipping.
+
+---
+
+## M11: Hardening & Release Candidate
+
+- [ ] **Settings, About & Privacy Verification**:
+  1. Click "Settings" in the left sidebar navigation (`/settings`).
+  2. Verify Application Version shows `v1.0.0-rc1`.
+  3. Verify Privacy & Security Checklist displays all 6 green badges:
+     - `127.0.0.1` Localhost-Only Binding
+     - Zero External Network Trackers / Analytics
+     - Deterministic Text Parsing (Zero LLMs on Patient Data)
+     - Zero External CDN / Font Requests
+     - Anonymous UUID Disk File Storage
+     - Non-Clinical Audit Log Isolation
+  4. Verify Operational Limitations accordion covers: Scanned Image/OCR Boundary, Complex Split Tables, Date Disambiguation Gating, and Manual Reconciliation of Unit Mismatches.
+  5. Verify Medical Disclaimer banner is clearly visible with prominent styling.
+
+- [ ] **25-Scenario Synthetic Clinical Hardening Suite**:
+  1. Run `pytest backend/tests/test_synthetic_scenarios.py -v`.
+  2. Verify all 25 clinical edge cases pass:
+     - PDF magic bytes & corrupt file rejection
+     - Scanned image non-OCR honest boundary
+     - Password-protected PDF rejection
+     - Duplicate SHA-256 detection
+     - Cross-patient workspace isolation
+     - Multi-line wrapped test name parsing
+     - `<` and `>` numeric comparators
+     - Qualitative values (Negative, Trace, Positive)
+     - Attached abnormal flag stripping
+     - Missing unit and reference interval fallbacks
+     - 4-tier specimen collection date priority
+     - Date ambiguity gating (`04/05/2026`)
+     - Date confirmation requirement for `reviewed` status
+     - `ResultEdit` immutable audit overlay
+     - Reversible review actions via undo stack
+     - Strict analyte non-merge ("Bilirubin Total" vs "Bilirubin Direct")
+     - Unit mismatch detection across reports
+     - Timeline zero-invention sparse matrix guarantee
+     - Same-date multi-report separate columns (FR5)
+     - Review-status timeline filtering
+     - CSV formula injection sanitization
+     - CSV UTF-8 BOM encoding
+     - Landscape PDF disclaimer compliance
+     - Sub-2.0s timeline response performance
+
+---
+
+## M12: Data Portability, Audit Logging & System Reset
+
+- [ ] **Audit Event Logging**:
+  1. Perform workspace actions (create patient, upload PDF, delete report, export CSV, export PDF).
+  2. Query `GET /api/v1/audit-events` via API docs or curl.
+  3. Verify non-clinical audit records are recorded with `event_type`, `patient_id`, and `details`.
+  4. Verify zero laboratory values, test names, or patient clinical notes exist in `audit_events`.
+
+- [ ] **Workspace JSON Archive Export & Import**:
+  1. Export a patient workspace archive via `GET /api/v1/patients/{id}/export/archive`.
+  2. Verify the JSON bundle includes patient metadata, reports, extracted results, canonical mappings, and edit history.
+  3. Test archive restore via `POST /api/v1/patients/import/archive` into a new workspace.
+
+- [ ] **"Delete Everything" System Reset**:
+  1. Navigate to `/settings`.
+  2. Scroll down to the Danger Zone.
+  3. Click "Delete Everything...".
+  4. Verify confirmation modal requires typing exact phrase: `DELETE EVERYTHING`.
+  5. Click "Confirm & Delete Everything".
+  6. Verify all patient workspaces, reports, extracted results, and audit events are purged from database.
+  7. Verify all uploaded PDF files are deleted from `data/uploads/`.
+  8. Verify canonical lab test definitions from `aliases.json` are automatically re-seeded.
+  9. Verify app navigates to empty dashboard.
+
+---
+
+## Complete Quality Gates (M0–M12)
+
+- [ ] **Backend Test Suite**:
+  `pytest -v` in `backend/` → **126 passed**, 0 failed (11 modules).
+- [ ] **Frontend Test Suite**:
+  `npm test -- --run` in `frontend/` → **52 passed**, 0 failed (9 test suites).
+- [ ] **TypeScript Type Check**:
+  `npm run type-check` in `frontend/` → **0 errors**.
+- [ ] **Production Frontend Build**:
+  `npm run build` in `frontend/` → **0 errors**, clean Vite production bundle.
+
 

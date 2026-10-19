@@ -164,6 +164,15 @@ async def upload_reports(
         if extraction.rows:
             result_repo.create_results_from_candidates(db, report.id, extraction.rows)
 
+        from app.repositories import audit_repo
+        audit_repo.log_audit_event(
+            db,
+            event_type="report_uploaded",
+            patient_id=patient_id,
+            entity_id=report.id,
+            details=f"filename={filename}, pages={page_count}, status={extraction.status}, rows={len(extraction.rows) if extraction.rows else 0}",
+        )
+
         results.append(
             ReportUploadItem(
                 filename=filename,

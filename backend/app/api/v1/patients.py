@@ -40,6 +40,13 @@ def create_patient(
 ) -> PatientResponse:
     """Create a new patient workspace."""
     patient = patient_repo.create_patient(db, data)
+    from app.repositories import audit_repo
+    audit_repo.log_audit_event(
+        db,
+        event_type="patient_created",
+        patient_id=patient.id,
+        details=f"display_name={patient.display_name}",
+    )
     return PatientResponse.model_validate(patient)
 
 
@@ -66,6 +73,13 @@ def update_patient(
     if patient is None:
         raise HTTPException(status_code=404, detail="Patient not found.")
     updated = patient_repo.update_patient(db, patient, data)
+    from app.repositories import audit_repo
+    audit_repo.log_audit_event(
+        db,
+        event_type="patient_updated",
+        patient_id=patient.id,
+        details="fields updated",
+    )
     return PatientResponse.model_validate(updated)
 
 
@@ -79,4 +93,12 @@ def delete_patient(
     if patient is None:
         raise HTTPException(status_code=404, detail="Patient not found.")
     patient_repo.delete_patient(db, patient)
+    from app.repositories import audit_repo
+    audit_repo.log_audit_event(
+        db,
+        event_type="patient_deleted",
+        patient_id=patient.id,
+        details=f"deleted patient {patient.display_name}",
+    )
     return None
+

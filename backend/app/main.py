@@ -11,6 +11,8 @@ from app.api.v1 import results
 from app.api.v1 import tests
 from app.api.v1 import mapping
 from app.api.v1 import timeline
+from app.api.v1 import audit
+from app.api.v1 import system
 from app.core.config import settings
 from app.db.base import Base
 from app.db.session import engine, SessionLocal
@@ -84,5 +86,8 @@ app.include_router(results.router, prefix=settings.API_V1_STR)
 app.include_router(tests.router, prefix=settings.API_V1_STR)
 app.include_router(mapping.router, prefix=settings.API_V1_STR)
 app.include_router(timeline.router, prefix=settings.API_V1_STR)
+app.include_router(audit.router, prefix=settings.API_V1_STR)
+app.include_router(system.router, prefix=settings.API_V1_STR)
+
 
 

@@ -13,11 +13,11 @@ import { DashboardPage } from './pages/DashboardPage';
 import { StyleguidePage } from './pages/StyleguidePage';
 import { PatientsPage } from './pages/PatientsPage';
 import { PatientWorkspacePage } from './pages/PatientWorkspacePage';
-import { EmptyState } from './components/ui/EmptyState';
 
 import { UploadPage } from './pages/UploadPage';
 import { MappingPage } from './pages/MappingPage';
 import { TimelinePage } from './pages/TimelinePage';
+import { SettingsPage } from './pages/SettingsPage';
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
 
@@ -132,15 +132,7 @@ export function App() {
           />
         );
       case 'settings':
-        return (
-          <EmptyState
-            icon="⚙️"
-            title="Settings &amp; Privacy Statement"
-            description="Local data privacy policy, version information, and 'Delete Everything' cascade will be implemented in Milestone 11."
-            actionLabel="Return to Dashboard"
-            onAction={() => setCurrentRoute('dashboard')}
-          />
-        );
+        return <SettingsPage onNavigateTo={setCurrentRoute} />;
       default:
         return (
           <DashboardPage
