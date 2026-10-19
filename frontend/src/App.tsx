@@ -1,10 +1,45 @@
+/**
+ * App.tsx — Root component. Manages routing and backend health state.
+ *
+ * M2 adds:
+ * - 'patients' route → PatientsPage (list + create/edit/delete)
+ * - 'patient/:id' route → PatientWorkspacePage (workspace detail)
+ * - Navigation from dashboard cards directly to patient workspaces
+ */
+
 import { useEffect, useState } from 'react';
 import { AppShell } from './components/layout/AppShell';
 import { DashboardPage } from './pages/DashboardPage';
 import { StyleguidePage } from './pages/StyleguidePage';
+import { PatientsPage } from './pages/PatientsPage';
+import { PatientWorkspacePage } from './pages/PatientWorkspacePage';
 import { EmptyState } from './components/ui/EmptyState';
 
+import { UploadPage } from './pages/UploadPage';
+import { MappingPage } from './pages/MappingPage';
+import { TimelinePage } from './pages/TimelinePage';
+
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
+
+/** Parsed route with an optional ID parameter. */
+interface Route {
+  page: string;
+  id?: string;
+}
+
+function parseRoute(route: string): Route {
+  // Support 'patient/some-uuid' for workspace detail view
+  if (route.startsWith('patient/')) {
+    return { page: 'patient', id: route.slice('patient/'.length) };
+  }
+  if (route.startsWith('mapping/')) {
+    return { page: 'mapping', id: route.slice('mapping/'.length) };
+  }
+  if (route.startsWith('timeline/')) {
+    return { page: 'timeline', id: route.slice('timeline/'.length) };
+  }
+  return { page: route };
+}
 
 export function App() {
   const [currentRoute, setCurrentRoute] = useState<string>('dashboard');
@@ -35,8 +70,14 @@ export function App() {
     checkHealth();
   }, []);
 
+  const navigateToPatient = (patientId: string) => {
+    setCurrentRoute(`patient/${patientId}`);
+  };
+
   const renderContent = () => {
-    switch (currentRoute) {
+    const { page, id } = parseRoute(currentRoute);
+
+    switch (page) {
       case 'dashboard':
         return (
           <DashboardPage
@@ -48,52 +89,53 @@ export function App() {
         );
       case 'styleguide':
         return <StyleguidePage />;
+
+      // M2: Patients list
       case 'patients':
       case 'workspaces':
+        return <PatientsPage onNavigateToPatient={navigateToPatient} />;
+
+      // M2: Individual patient workspace
+      case 'patient':
+        if (!id) {
+          setCurrentRoute('patients');
+          return null;
+        }
         return (
-          <EmptyState
-            icon="👥"
-            title="Patients (Milestone 2)"
-            description="Patient workspaces, profiles, and chronological report lists will be implemented in Milestone 2."
-            actionLabel="Return to Dashboard"
-            onAction={() => setCurrentRoute('dashboard')}
+          <PatientWorkspacePage
+            patientId={id}
+            onNavigateBack={() => setCurrentRoute('patients')}
+            onNavigateTo={setCurrentRoute}
           />
         );
+
       case 'upload':
         return (
-          <EmptyState
-            icon="📤"
-            title="Upload Lab Reports (Milestone 3)"
-            description="Multi-file upload, SHA-256 duplicate validation, and batch processing will be implemented in Milestone 3."
-            actionLabel="Return to Dashboard"
-            onAction={() => setCurrentRoute('dashboard')}
+          <UploadPage
+            onNavigateTo={setCurrentRoute}
+            onNavigateToPatient={navigateToPatient}
           />
         );
       case 'timeline':
         return (
-          <EmptyState
-            icon="📈"
-            title="Lab Timeline Table (Milestone 8)"
-            description="The chronological date-wise matrix with sticky columns and PDF source jump will be implemented in Milestone 8."
-            actionLabel="Return to Dashboard"
-            onAction={() => setCurrentRoute('dashboard')}
+          <TimelinePage
+            initialPatientId={id}
+            onNavigateToWorkspace={navigateToPatient}
+            onNavigateToReview={(patientId, _reportId) => navigateToPatient(patientId)}
           />
         );
       case 'mapping':
         return (
-          <EmptyState
-            icon="🏷️"
-            title="Test Normalization & Mapping (Milestone 7)"
-            description="Alias normalization and suggestions to match variations like Hb -> Hemoglobin will be implemented in Milestone 7."
-            actionLabel="Return to Dashboard"
-            onAction={() => setCurrentRoute('dashboard')}
+          <MappingPage
+            initialPatientId={id}
+            onNavigateToWorkspace={navigateToPatient}
           />
         );
       case 'settings':
         return (
           <EmptyState
             icon="⚙️"
-            title="Settings & Privacy Statement"
+            title="Settings &amp; Privacy Statement"
             description="Local data privacy policy, version information, and 'Delete Everything' cascade will be implemented in Milestone 11."
             actionLabel="Return to Dashboard"
             onAction={() => setCurrentRoute('dashboard')}
@@ -113,7 +155,7 @@ export function App() {
 
   return (
     <AppShell
-      currentRoute={currentRoute}
+      currentRoute={parseRoute(currentRoute).page}
       onRouteChange={setCurrentRoute}
       connectionStatus={status}
       onRetryConnection={checkHealth}

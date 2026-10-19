@@ -11,6 +11,8 @@ export interface ModalProps {
   cancelLabel?: string;
   isDestructive?: boolean;
   onConfirm?: () => void;
+  /** Override default max width of the dialog panel. e.g. "780px" */
+  maxWidth?: string;
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -23,6 +25,7 @@ export const Modal: React.FC<ModalProps> = ({
   cancelLabel = 'Cancel',
   isDestructive = false,
   onConfirm,
+  maxWidth = '480px',
 }) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -59,7 +62,7 @@ export const Modal: React.FC<ModalProps> = ({
       <div
         style={{
           width: '100%',
-          maxWidth: '480px',
+          maxWidth,
           backgroundColor: 'var(--surface)',
           borderRadius: 'var(--radius-card)',
           boxShadow: 'var(--shadow-modal)',
@@ -84,25 +87,28 @@ export const Modal: React.FC<ModalProps> = ({
 
         {children && <div style={{ padding: '12px 24px' }}>{children}</div>}
 
-        <div
-          style={{
-            padding: '16px 24px',
-            backgroundColor: 'var(--surface-muted)',
-            borderTop: '1px solid var(--border)',
-            display: 'flex',
-            justifyContent: 'flex-end',
-            gap: '12px',
-          }}
-        >
-          <Button variant="secondary" onClick={onClose}>
-            {cancelLabel}
-          </Button>
-          {onConfirm && (
-            <Button variant={isDestructive ? 'danger' : 'primary'} onClick={onConfirm}>
-              {confirmLabel}
+        {/* Only render the built-in footer when there is no children providing their own buttons */}
+        {!children && (
+          <div
+            style={{
+              padding: '16px 24px',
+              backgroundColor: 'var(--surface-muted)',
+              borderTop: '1px solid var(--border)',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '12px',
+            }}
+          >
+            <Button variant="secondary" onClick={onClose}>
+              {cancelLabel}
             </Button>
-          )}
-        </div>
+            {onConfirm && (
+              <Button variant={isDestructive ? 'danger' : 'primary'} onClick={onConfirm}>
+                {confirmLabel}
+              </Button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,0 +1,697 @@
+[
+  {
+    "canonical_name": "Hemoglobin",
+    "category": "Complete Blood Count",
+    "preferred_unit": "g/dL",
+    "aliases": [
+      "Hemoglobin",
+      "Hb",
+      "HGB",
+      "Haemoglobin",
+      "HB",
+      "Hgb",
+      "Hemoglobin (Hb)",
+      "Hb (Hemoglobin)"
+    ]
+  },
+  {
+    "canonical_name": "Total Leukocyte Count",
+    "category": "Complete Blood Count",
+    "preferred_unit": "cells/mcL",
+    "aliases": [
+      "Total Leukocyte Count",
+      "Total WBC",
+      "Total WBC Count",
+      "WBC",
+      "White Blood Cell Count",
+      "TLC",
+      "Total Leucocyte Count",
+      "Leukocytes",
+      "WBC Count"
+    ]
+  },
+  {
+    "canonical_name": "Platelet Count",
+    "category": "Complete Blood Count",
+    "preferred_unit": "cells/mcL",
+    "aliases": [
+      "Platelet Count",
+      "Platelets",
+      "PLT",
+      "Platelet",
+      "Thrombocyte Count",
+      "Total Platelet Count"
+    ]
+  },
+  {
+    "canonical_name": "RBC Count",
+    "category": "Complete Blood Count",
+    "preferred_unit": "million/mcL",
+    "aliases": [
+      "RBC Count",
+      "RBC",
+      "Red Blood Cell Count",
+      "Total RBC",
+      "Erythrocytes",
+      "Red Blood Cells"
+    ]
+  },
+  {
+    "canonical_name": "Packed Cell Volume (PCV)",
+    "category": "Complete Blood Count",
+    "preferred_unit": "%",
+    "aliases": [
+      "Packed Cell Volume (PCV)",
+      "PCV",
+      "Hematocrit",
+      "HCT",
+      "Packed Cell Volume",
+      "Hct"
+    ]
+  },
+  {
+    "canonical_name": "Mean Corpuscular Volume (MCV)",
+    "category": "Complete Blood Count",
+    "preferred_unit": "fL",
+    "aliases": [
+      "Mean Corpuscular Volume (MCV)",
+      "MCV",
+      "Mean Corpuscular Volume",
+      "Mean Cell Volume"
+    ]
+  },
+  {
+    "canonical_name": "Mean Corpuscular Hemoglobin (MCH)",
+    "category": "Complete Blood Count",
+    "preferred_unit": "pg",
+    "aliases": [
+      "Mean Corpuscular Hemoglobin (MCH)",
+      "MCH",
+      "Mean Corpuscular Hemoglobin",
+      "Mean Cell Hemoglobin"
+    ]
+  },
+  {
+    "canonical_name": "Mean Corpuscular Hemoglobin Concentration (MCHC)",
+    "category": "Complete Blood Count",
+    "preferred_unit": "g/dL",
+    "aliases": [
+      "Mean Corpuscular Hemoglobin Concentration (MCHC)",
+      "MCHC",
+      "Mean Corpuscular Hb Conc"
+    ]
+  },
+  {
+    "canonical_name": "Red Cell Distribution Width (RDW)",
+    "category": "Complete Blood Count",
+    "preferred_unit": "%",
+    "aliases": [
+      "Red Cell Distribution Width (RDW)",
+      "RDW",
+      "RDW-CV",
+      "RDW - CV",
+      "Red Cell Distribution Width"
+    ]
+  },
+  {
+    "canonical_name": "Neutrophils",
+    "category": "Differential Leukocyte Count",
+    "preferred_unit": "%",
+    "aliases": [
+      "Neutrophils",
+      "Neutrophil",
+      "Polymorphs",
+      "Segmented Neutrophils",
+      "Absolute Neutrophil Count",
+      "Neutrophils %"
+    ]
+  },
+  {
+    "canonical_name": "Lymphocytes",
+    "category": "Differential Leukocyte Count",
+    "preferred_unit": "%",
+    "aliases": [
+      "Lymphocytes",
+      "Lymphocyte",
+      "Absolute Lymphocyte Count",
+      "Lymphocytes %"
+    ]
+  },
+  {
+    "canonical_name": "Monocytes",
+    "category": "Differential Leukocyte Count",
+    "preferred_unit": "%",
+    "aliases": [
+      "Monocytes",
+      "Monocyte",
+      "Monocytes %"
+    ]
+  },
+  {
+    "canonical_name": "Eosinophils",
+    "category": "Differential Leukocyte Count",
+    "preferred_unit": "%",
+    "aliases": [
+      "Eosinophils",
+      "Eosinophil",
+      "Eosinophils %"
+    ]
+  },
+  {
+    "canonical_name": "Basophils",
+    "category": "Differential Leukocyte Count",
+    "preferred_unit": "%",
+    "aliases": [
+      "Basophils",
+      "Basophil",
+      "Basophils %"
+    ]
+  },
+  {
+    "canonical_name": "Erythrocyte Sedimentation Rate (ESR)",
+    "category": "Complete Blood Count",
+    "preferred_unit": "mm/hr",
+    "aliases": [
+      "Erythrocyte Sedimentation Rate (ESR)",
+      "ESR",
+      "Erythrocyte Sedimentation Rate"
+    ]
+  },
+  {
+    "canonical_name": "Total Cholesterol",
+    "category": "Lipid Profile",
+    "preferred_unit": "mg/dL",
+    "aliases": [
+      "Total Cholesterol",
+      "Cholesterol Total",
+      "Cholesterol",
+      "Serum Cholesterol",
+      "Total Chol"
+    ]
+  },
+  {
+    "canonical_name": "HDL Cholesterol",
+    "category": "Lipid Profile",
+    "preferred_unit": "mg/dL",
+    "aliases": [
+      "HDL Cholesterol",
+      "HDL",
+      "HDL-C",
+      "High Density Lipoprotein",
+      "Cholesterol HDL",
+      "HDL-Cholesterol"
+    ]
+  },
+  {
+    "canonical_name": "LDL Cholesterol",
+    "category": "Lipid Profile",
+    "preferred_unit": "mg/dL",
+    "aliases": [
+      "LDL Cholesterol",
+      "LDL",
+      "LDL-C",
+      "Low Density Lipoprotein",
+      "Cholesterol LDL",
+      "Direct LDL",
+      "LDL-Cholesterol"
+    ]
+  },
+  {
+    "canonical_name": "Triglycerides",
+    "category": "Lipid Profile",
+    "preferred_unit": "mg/dL",
+    "aliases": [
+      "Triglycerides",
+      "Triglyceride",
+      "Serum Triglycerides",
+      "TGL",
+      "TRIG"
+    ]
+  },
+  {
+    "canonical_name": "VLDL Cholesterol",
+    "category": "Lipid Profile",
+    "preferred_unit": "mg/dL",
+    "aliases": [
+      "VLDL Cholesterol",
+      "VLDL",
+      "VLDL-C",
+      "Very Low Density Lipoprotein"
+    ]
+  },
+  {
+    "canonical_name": "Non-HDL Cholesterol",
+    "category": "Lipid Profile",
+    "preferred_unit": "mg/dL",
+    "aliases": [
+      "Non-HDL Cholesterol",
+      "Non HDL Cholesterol",
+      "NON-HDL",
+      "Non-HDL"
+    ]
+  },
+  {
+    "canonical_name": "Bilirubin Total",
+    "category": "Liver Function",
+    "preferred_unit": "mg/dL",
+    "aliases": [
+      "Bilirubin Total",
+      "Total Bilirubin",
+      "Bilirubin - Total",
+      "Bilirubin, Total",
+      "Total Bili",
+      "TBIL",
+      "Serum Bilirubin Total"
+    ]
+  },
+  {
+    "canonical_name": "Bilirubin Direct",
+    "category": "Liver Function",
+    "preferred_unit": "mg/dL",
+    "aliases": [
+      "Bilirubin Direct",
+      "Direct Bilirubin",
+      "Bilirubin - Direct",
+      "Conjugated Bilirubin",
+      "Bilirubin, Direct",
+      "DBIL",
+      "Direct Bili"
+    ]
+  },
+  {
+    "canonical_name": "Bilirubin Indirect",
+    "category": "Liver Function",
+    "preferred_unit": "mg/dL",
+    "aliases": [
+      "Bilirubin Indirect",
+      "Indirect Bilirubin",
+      "Unconjugated Bilirubin",
+      "Bilirubin, Indirect",
+      "IBIL"
+    ]
+  },
+  {
+    "canonical_name": "SGOT / AST",
+    "category": "Liver Function",
+    "preferred_unit": "U/L",
+    "aliases": [
+      "SGOT / AST",
+      "SGOT",
+      "AST",
+      "Aspartate Aminotransferase",
+      "SGOT (AST)",
+      "AST / SGOT",
+      "AST (SGOT)"
+    ]
+  },
+  {
+    "canonical_name": "SGPT / ALT",
+    "category": "Liver Function",
+    "preferred_unit": "U/L",
+    "aliases": [
+      "SGPT / ALT",
+      "SGPT",
+      "ALT",
+      "Alanine Aminotransferase",
+      "SGPT (ALT)",
+      "ALT / SGPT",
+      "ALT (SGPT)"
+    ]
+  },
+  {
+    "canonical_name": "Alkaline Phosphatase (ALP)",
+    "category": "Liver Function",
+    "preferred_unit": "U/L",
+    "aliases": [
+      "Alkaline Phosphatase (ALP)",
+      "Alkaline Phosphatase",
+      "ALP",
+      "Alk Phos"
+    ]
+  },
+  {
+    "canonical_name": "Total Protein",
+    "category": "Liver Function",
+    "preferred_unit": "g/dL",
+    "aliases": [
+      "Total Protein",
+      "Protein Total",
+      "Serum Total Protein",
+      "Protein, Total"
+    ]
+  },
+  {
+    "canonical_name": "Albumin",
+    "category": "Liver Function",
+    "preferred_unit": "g/dL",
+    "aliases": [
+      "Albumin",
+      "Serum Albumin",
+      "Alb"
+    ]
+  },
+  {
+    "canonical_name": "Globulin",
+    "category": "Liver Function",
+    "preferred_unit": "g/dL",
+    "aliases": [
+      "Globulin",
+      "Serum Globulin"
+    ]
+  },
+  {
+    "canonical_name": "A/G Ratio",
+    "category": "Liver Function",
+    "preferred_unit": "ratio",
+    "aliases": [
+      "A/G Ratio",
+      "Albumin/Globulin Ratio",
+      "Albumin Globulin Ratio",
+      "A:G Ratio"
+    ]
+  },
+  {
+    "canonical_name": "Gamma GT (GGT)",
+    "category": "Liver Function",
+    "preferred_unit": "U/L",
+    "aliases": [
+      "Gamma GT (GGT)",
+      "GGT",
+      "Gamma Glutamyl Transferase",
+      "GGTP"
+    ]
+  },
+  {
+    "canonical_name": "Serum Creatinine",
+    "category": "Renal Function",
+    "preferred_unit": "mg/dL",
+    "aliases": [
+      "Serum Creatinine",
+      "Creatinine",
+      "Creatinine Serum",
+      "S. Creatinine",
+      "Creat"
+    ]
+  },
+  {
+    "canonical_name": "Blood Urea",
+    "category": "Renal Function",
+    "preferred_unit": "mg/dL",
+    "aliases": [
+      "Blood Urea",
+      "Urea",
+      "Serum Urea"
+    ]
+  },
+  {
+    "canonical_name": "Blood Urea Nitrogen (BUN)",
+    "category": "Renal Function",
+    "preferred_unit": "mg/dL",
+    "aliases": [
+      "Blood Urea Nitrogen (BUN)",
+      "BUN",
+      "Blood Urea Nitrogen"
+    ]
+  },
+  {
+    "canonical_name": "Uric Acid",
+    "category": "Renal Function",
+    "preferred_unit": "mg/dL",
+    "aliases": [
+      "Uric Acid",
+      "Serum Uric Acid"
+    ]
+  },
+  {
+    "canonical_name": "eGFR",
+    "category": "Renal Function",
+    "preferred_unit": "mL/min/1.73m2",
+    "aliases": [
+      "eGFR",
+      "Estimated GFR",
+      "Glomerular Filtration Rate (eGFR)",
+      "GFR"
+    ]
+  },
+  {
+    "canonical_name": "Fasting Blood Glucose",
+    "category": "Glucose & Diabetes",
+    "preferred_unit": "mg/dL",
+    "aliases": [
+      "Fasting Blood Glucose",
+      "Fasting Glucose",
+      "Glucose Fasting",
+      "Blood Sugar Fasting",
+      "FBS",
+      "BSF",
+      "Fasting Blood Sugar"
+    ]
+  },
+  {
+    "canonical_name": "Post Prandial Blood Glucose",
+    "category": "Glucose & Diabetes",
+    "preferred_unit": "mg/dL",
+    "aliases": [
+      "Post Prandial Blood Glucose",
+      "PP Glucose",
+      "Glucose PP",
+      "Blood Sugar PP",
+      "PPBS",
+      "Post Prandial Glucose"
+    ]
+  },
+  {
+    "canonical_name": "Random Blood Glucose",
+    "category": "Glucose & Diabetes",
+    "preferred_unit": "mg/dL",
+    "aliases": [
+      "Random Blood Glucose",
+      "Random Glucose",
+      "RBS",
+      "Blood Sugar Random"
+    ]
+  },
+  {
+    "canonical_name": "HbA1c (Glycated Hemoglobin)",
+    "category": "Glucose & Diabetes",
+    "preferred_unit": "%",
+    "aliases": [
+      "HbA1c (Glycated Hemoglobin)",
+      "HbA1c",
+      "Glycated Hemoglobin",
+      "Glycosylated Hemoglobin",
+      "HBA1C",
+      "Hemoglobin A1c"
+    ]
+  },
+  {
+    "canonical_name": "Estimated Average Glucose (eAG)",
+    "category": "Glucose & Diabetes",
+    "preferred_unit": "mg/dL",
+    "aliases": [
+      "Estimated Average Glucose (eAG)",
+      "eAG",
+      "Average Glucose"
+    ]
+  },
+  {
+    "canonical_name": "Sodium",
+    "category": "Electrolytes",
+    "preferred_unit": "mmol/L",
+    "aliases": [
+      "Sodium",
+      "Serum Sodium",
+      "Na+",
+      "Na"
+    ]
+  },
+  {
+    "canonical_name": "Potassium",
+    "category": "Electrolytes",
+    "preferred_unit": "mmol/L",
+    "aliases": [
+      "Potassium",
+      "Serum Potassium",
+      "K+",
+      "K"
+    ]
+  },
+  {
+    "canonical_name": "Chloride",
+    "category": "Electrolytes",
+    "preferred_unit": "mmol/L",
+    "aliases": [
+      "Chloride",
+      "Serum Chloride",
+      "Cl-",
+      "Cl"
+    ]
+  },
+  {
+    "canonical_name": "Calcium",
+    "category": "Electrolytes",
+    "preferred_unit": "mg/dL",
+    "aliases": [
+      "Calcium",
+      "Serum Calcium",
+      "Total Calcium",
+      "Ca"
+    ]
+  },
+  {
+    "canonical_name": "Phosphorus",
+    "category": "Electrolytes",
+    "preferred_unit": "mg/dL",
+    "aliases": [
+      "Phosphorus",
+      "Serum Phosphorus",
+      "Phosphate",
+      "Inorganic Phosphorus"
+    ]
+  },
+  {
+    "canonical_name": "Thyroid Stimulating Hormone (TSH)",
+    "category": "Thyroid Profile",
+    "preferred_unit": "uIU/mL",
+    "aliases": [
+      "Thyroid Stimulating Hormone (TSH)",
+      "TSH",
+      "Thyrotropin",
+      "Ultrasensitive TSH"
+    ]
+  },
+  {
+    "canonical_name": "Free T3 (FT3)",
+    "category": "Thyroid Profile",
+    "preferred_unit": "pg/mL",
+    "aliases": [
+      "Free T3 (FT3)",
+      "FT3",
+      "Free Triiodothyronine",
+      "Free T3"
+    ]
+  },
+  {
+    "canonical_name": "Free T4 (FT4)",
+    "category": "Thyroid Profile",
+    "preferred_unit": "ng/dL",
+    "aliases": [
+      "Free T4 (FT4)",
+      "FT4",
+      "Free Thyroxine",
+      "Free T4"
+    ]
+  },
+  {
+    "canonical_name": "Total T3",
+    "category": "Thyroid Profile",
+    "preferred_unit": "ng/dL",
+    "aliases": [
+      "Total T3",
+      "T3",
+      "Total Triiodothyronine"
+    ]
+  },
+  {
+    "canonical_name": "Total T4",
+    "category": "Thyroid Profile",
+    "preferred_unit": "ug/dL",
+    "aliases": [
+      "Total T4",
+      "T4",
+      "Total Thyroxine"
+    ]
+  },
+  {
+    "canonical_name": "Vitamin D (25-OH)",
+    "category": "Vitamins & Minerals",
+    "preferred_unit": "ng/mL",
+    "aliases": [
+      "Vitamin D (25-OH)",
+      "25-OH Vitamin D",
+      "Vitamin D",
+      "Vitamin D Total",
+      "25-Hydroxy Vitamin D",
+      "Vit D3"
+    ]
+  },
+  {
+    "canonical_name": "Vitamin B12",
+    "category": "Vitamins & Minerals",
+    "preferred_unit": "pg/mL",
+    "aliases": [
+      "Vitamin B12",
+      "Cyanocobalamin",
+      "B12",
+      "Vit B12"
+    ]
+  },
+  {
+    "canonical_name": "Serum Iron",
+    "category": "Iron Studies",
+    "preferred_unit": "ug/dL",
+    "aliases": [
+      "Serum Iron",
+      "Iron",
+      "Iron, Serum"
+    ]
+  },
+  {
+    "canonical_name": "Ferritin",
+    "category": "Iron Studies",
+    "preferred_unit": "ng/mL",
+    "aliases": [
+      "Ferritin",
+      "Serum Ferritin"
+    ]
+  },
+  {
+    "canonical_name": "Total Iron Binding Capacity (TIBC)",
+    "category": "Iron Studies",
+    "preferred_unit": "ug/dL",
+    "aliases": [
+      "Total Iron Binding Capacity (TIBC)",
+      "TIBC",
+      "Iron Binding Capacity"
+    ]
+  },
+  {
+    "canonical_name": "Urine Protein",
+    "category": "Urine Examination",
+    "preferred_unit": "mg/dL",
+    "aliases": [
+      "Urine Protein",
+      "Protein Urine",
+      "Albumin Urine"
+    ]
+  },
+  {
+    "canonical_name": "Urine Glucose",
+    "category": "Urine Examination",
+    "preferred_unit": "mg/dL",
+    "aliases": [
+      "Urine Glucose",
+      "Sugar Urine",
+      "Urine Sugar"
+    ]
+  },
+  {
+    "canonical_name": "Urine pH",
+    "category": "Urine Examination",
+    "preferred_unit": "pH",
+    "aliases": [
+      "Urine pH",
+      "pH Urine"
+    ]
+  },
+  {
+    "canonical_name": "Urine Specific Gravity",
+    "category": "Urine Examination",
+    "preferred_unit": "ratio",
+    "aliases": [
+      "Urine Specific Gravity",
+      "Specific Gravity",
+      "Sp. Gravity"
+    ]
+  }
+]

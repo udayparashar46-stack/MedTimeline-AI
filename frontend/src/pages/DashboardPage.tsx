@@ -527,9 +527,43 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   {filteredPatients.map((patient) => (
                     <TableRow key={patient.id}>
                       <TableCell style={{ fontWeight: 600, color: 'var(--primary)' }}>
-                        {patient.id}
+                        <button
+                          type="button"
+                          onClick={() => onNavigateTo('patients')}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            cursor: 'pointer',
+                            color: 'var(--primary)',
+                            fontWeight: 600,
+                            textDecoration: 'underline',
+                            textDecorationStyle: 'dotted',
+                            textUnderlineOffset: '3px',
+                          }}
+                          aria-label={`Open workspace for ${patient.id}`}
+                        >
+                          {patient.id}
+                        </button>
                       </TableCell>
-                      <TableCell style={{ fontWeight: 500 }}>{patient.name}</TableCell>
+                      <TableCell style={{ fontWeight: 500 }}>
+                        <button
+                          type="button"
+                          onClick={() => onNavigateTo('patients')}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            cursor: 'pointer',
+                            color: 'inherit',
+                            fontWeight: 500,
+                            textAlign: 'left',
+                          }}
+                          aria-label={`Open workspace for ${patient.name}`}
+                        >
+                          {patient.name}
+                        </button>
+                      </TableCell>
                       <TableCell>{patient.latestDate}</TableCell>
                       <TableCell>{patient.reportCount} reports</TableCell>
                       <TableCell>
@@ -547,14 +581,25 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                         </Badge>
                       </TableCell>
                       <TableCell style={{ textAlign: 'right' }}>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => onNavigateTo('timeline')}
-                          style={{ fontSize: '12px', padding: '4px 10px' }}
-                        >
-                          Open Timeline →
-                        </Button>
+                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => onNavigateTo('patients')}
+                            style={{ fontSize: '12px', padding: '4px 10px' }}
+                            aria-label={`Open workspace for ${patient.name}`}
+                          >
+                            Workspace
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onNavigateTo('timeline')}
+                            style={{ fontSize: '12px', padding: '4px 10px' }}
+                          >
+                            Timeline →
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

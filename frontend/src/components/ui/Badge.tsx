@@ -2,6 +2,7 @@ import React from 'react';
 
 export type BadgeVariant =
   | 'confirmed'
+  | 'success'
   | 'warning'
   | 'danger'
   | 'info'
@@ -29,6 +30,12 @@ export const Badge: React.FC<BadgeProps> = ({
       color: 'var(--success)',
       border: 'rgba(21, 128, 61, 0.3)',
     },
+    success: {
+      bg: 'rgba(21, 128, 61, 0.1)',
+      color: 'var(--success)',
+      border: 'rgba(21, 128, 61, 0.3)',
+    },
+
     warning: {
       bg: 'rgba(180, 83, 9, 0.1)',
       color: 'var(--warning)',
@@ -66,7 +73,8 @@ export const Badge: React.FC<BadgeProps> = ({
     },
   };
 
-  const current = variantStyles[variant];
+  const current = variantStyles[variant] || variantStyles.neutral;
+
 
   return (
     <span
