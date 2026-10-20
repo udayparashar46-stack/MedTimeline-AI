@@ -3,17 +3,17 @@ services:
     name: medtimeline-ai-backend
     env: python
     plan: free
-    rootDir: backend
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
-    healthCheckPath: /api/v1/health
+    rootDir: .
+    buildCommand: "cd frontend && npm ci && npm run build && cd .. && pip install -r backend/requirements.txt"
+    startCommand: "cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /api/health
     envVars:
       - key: SECRET_KEY
         generateValue: true
       - key: ENVIRONMENT
         value: production
       - key: BACKEND_CORS_ORIGINS
-        value: https://medtimeline-ai.vercel.app
+        value: https://medtimeline-ai.onrender.com
       - key: DATABASE_URL
         fromDatabase:
           name: medtimeline-db

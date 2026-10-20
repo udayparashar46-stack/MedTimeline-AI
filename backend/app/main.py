@@ -1,8 +1,13 @@
 """Main application entry point for MedTimeline AI backend."""
 
+import os
 from contextlib import asynccontextmanager
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.v1 import health, patients, reports, results, tests, mapping, timeline, audit, system
 from app.api.v1 import auth as auth_router
@@ -15,6 +20,11 @@ from app.services.normalization.seeder import seed_canonical_tests
 import app.db.models  # noqa: F401
 
 from sqlalchemy import text
+
+# Resolve path to the built React SPA (built into frontend/dist at repo root)
+_HERE = Path(__file__).resolve()  # .../backend/app/main.py
+_REPO_ROOT = _HERE.parent.parent.parent  # three levels up → repo root
+FRONTEND_DIST = _REPO_ROOT / "frontend" / "dist"
 
 
 @asynccontextmanager
@@ -84,3 +94,29 @@ app.include_router(mapping.router, prefix=settings.API_V1_STR)
 app.include_router(timeline.router, prefix=settings.API_V1_STR)
 app.include_router(audit.router, prefix=settings.API_V1_STR)
 app.include_router(system.router, prefix=settings.API_V1_STR)
+
+
+# ---------------------------------------------------------------------------
+# /api/health shortcut (Render health-check convenience alias)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/health", tags=["health"], include_in_schema=False)
+async def api_health_shortcut() -> dict:
+    """Top-level health alias for load-balancers that probe /api/health."""
+    return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# Serve React SPA for non-API routes (MUST be registered last)
+# ---------------------------------------------------------------------------
+
+if FRONTEND_DIST.exists():
+    # Mount the hashed assets folder so they get cache-friendly Content-Type headers
+    _assets_dir = FRONTEND_DIST / "assets"
+    if _assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=str(_assets_dir)), name="spa-assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_spa(full_path: str) -> FileResponse:
+        """Catch-all: serve index.html so client-side routing works."""
+        return FileResponse(str(FRONTEND_DIST / "index.html"))
