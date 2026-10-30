@@ -6,7 +6,7 @@ services:
     rootDir: .
     buildCommand: "cd frontend && npm ci && npm run build && cd .. && pip install -r backend/requirements.txt"
     startCommand: "cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
-    healthCheckPath: /api/health
+    healthCheckPath: /api/v1/health
     envVars:
       - key: SECRET_KEY
         generateValue: true
@@ -19,13 +19,9 @@ services:
           name: medtimeline-db
           property: connectionString
       - key: UPLOAD_DIR
-        value: /var/data/uploads
+        value: /tmp/uploads
       - key: AUTH_REQUIRED
         value: "true"
-    disk:
-      name: uploads
-      mountPath: /var/data
-      sizeGB: 1
 
 databases:
   - name: medtimeline-db

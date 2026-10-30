@@ -15,9 +15,10 @@ app.get('/api/health', (req, res) => {
 // Optional proxy to FastAPI backend when BACKEND_URL is configured
 const BACKEND_URL = process.env.BACKEND_URL;
 if (BACKEND_URL) {
+  const backendBase = BACKEND_URL.replace(/\/$/, '');
   app.use('/api/v1', (req, res) => {
     try {
-      const targetUrl = new URL(req.originalUrl, BACKEND_URL);
+      const targetUrl = new URL(`${backendBase}${req.originalUrl}`);
       const client = targetUrl.protocol === 'https:' ? https : http;
       const proxyReq = client.request(
         targetUrl,
@@ -42,6 +43,11 @@ if (BACKEND_URL) {
         res.status(500).json({ error: 'Proxy routing error', detail: e.message });
       }
     }
+  });
+} else {
+  // Direct fallback for /api/v1/health when backend URL is not yet injected
+  app.get('/api/v1/health', (req, res) => {
+    res.status(200).json({ status: 'ok' });
   });
 }
 

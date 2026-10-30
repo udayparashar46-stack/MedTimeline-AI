@@ -48,10 +48,9 @@ export interface ApiError {
 // Base request helper
 // ---------------------------------------------------------------------------
 
-// In production (Vercel), VITE_API_BASE_URL points to the Render backend.
-// In local development, it is empty and Vite's dev proxy handles /api → :8000.
-const API_ORIGIN = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
-const BASE = `${API_ORIGIN}/api/v1`;
+// All requests use relative path /api/v1 (same origin) so that
+// the Express server (or local Vite proxy) proxies to BACKEND_URL.
+const BASE = '/api/v1';
 
 // ---------------------------------------------------------------------------
 // Auth helpers

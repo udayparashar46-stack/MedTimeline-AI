@@ -44,8 +44,6 @@ function parseRoute(route: string): Route {
   return { page: route };
 }
 
-const API_ORIGIN = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
-
 export function App() {
   const [currentRoute, setCurrentRoute] = useState<string>('dashboard');
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
@@ -69,7 +67,7 @@ export function App() {
     setStatus('connecting');
     setErrorDetails(null);
     try {
-      const response = await fetch(`${API_ORIGIN}/api/v1/health`);
+      const response = await fetch('/api/v1/health');
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
