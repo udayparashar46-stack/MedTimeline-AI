@@ -18,7 +18,7 @@ COMMON_UNITS = {
     "uiu/ml", "miu/ml", "ku/l",
     # Hematology & Counts
     "cells/mcl", "cells/ul", "/cumm", "/ul", "/hpf", "/lpf", "10^3/ul", "10^6/ul", "10^9/l",
-    "10^12/l", "x10^3/ul", "x10^6/ul", "x10^9/l", "x10^12/l", "thou/ul", "mil/ul",
+    "10^12/l", "x10^3/ul", "x10^6/ul", "x10^9/l", "x10^12/l", "thou/ul", "mil/ul", "/mcl",
     # RBC indices & sizes
     "fl", "pg", "%", "percent",
     # Rates and Time
@@ -27,46 +27,65 @@ COMMON_UNITS = {
     "ratio", "index", "g/g", "mg/g", "ug/mg",
 }
 
+# Common OCR unit character substitutions where slashes or glyphs are misread
+OCR_UNIT_ALIASES = {
+    "mgidl": "mg/dL",
+    "mg/dl": "mg/dL",
+    "gidl": "g/dL",
+    "g/dl": "g/dL",
+    "gil": "g/dL",
+    "ulm": "uIU/mL",
+    "uiuml": "uIU/mL",
+    "uiu/ml": "uIU/mL",
+    "mmolll": "mmol/L",
+    "mmol/l": "mmol/L",
+}
+
 # Known qualitative clinical text results
 QUALITATIVE_VALUES = {
     "negative", "positive", "reactive", "non-reactive", "nonreactive", "nil", "normal",
     "not detected", "detected", "trace", "present", "absent", "clear", "cloudy", "turbid",
-    "straw", "yellow", "amber", "pale yellow", "adequate",
+    "straw", "yellow", "amber", "pale yellow", "adequate", "borderline", "equivocal",
+    "inconclusive", "seen", "not seen", "none", "unremarkable", "moderately reactive",
+    "weakly reactive", "strongly reactive", "indeterminate",
 }
 
 # Abnormal flag tokens
-FLAG_TOKENS = {"h", "l", "high", "low", "abnormal", "critical", "*", "a", "critically high", "critically low"}
+FLAG_TOKENS = {
+    "h", "l", "high", "low", "abnormal", "critical", "*", "a",
+    "critically high", "critically low", "hh", "ll", "pos", "neg",
+}
 
 # Regex for numeric values with optional comparator and optional trailing flag
-# Examples: "13.2", "< 0.05", ">100", ">= 1.5", "<= 20", "13.2 H", "140*"
+# Examples: "13.2", "-1.5", "< 0.05", ">100", ">= 1.5", "<= 20", "13.2 H", "140*", "-0.2 L"
 NUMERIC_VALUE_REGEX = re.compile(
-    r"^(?P<comp>[<>]=?)?\s*(?P<num>\d+(?:\.\d+)?)(?:\s*(?P<flag>[A-Za-z*]+))?$"
+    r"^(?P<comp>[<>]=?)?\s*(?P<num>-?\d+(?:\.\d+)?)(?:\s*(?P<flag>[A-Za-z*]+))?$"
 )
 
 # Reference interval regexes
-# e.g., "13.0 - 17.0", "70 - 110", "0.5 to 1.2", "< 200", "> 50", "Up to 150"
+# e.g., "13.0 - 17.0", "-2.0 to 2.0", "70 - 110", "0.5 to 1.2", "< 200", "> 50", "Up to 150"
 REF_RANGE_REGEX = re.compile(
-    r"^(?P<low>\d+(?:\.\d+)?)\s*[-–—to]\s*(?P<high>\d+(?:\.\d+)?)$",
+    r"^(?P<low>-?\d+(?:\.\d+)?)\s*[-–—to]\s*(?P<high>-?\d+(?:\.\d+)?)$",
     re.IGNORECASE,
 )
 REF_UPPER_BOUND_REGEX = re.compile(
-    r"^(?:<|<=|up\s*to|less\s*than)\s*(?P<val>\d+(?:\.\d+)?)$",
+    r"^(?:<|<=|up\s*to|less\s*than)\s*(?P<val>-?\d+(?:\.\d+)?)$",
     re.IGNORECASE,
 )
 REF_LOWER_BOUND_REGEX = re.compile(
-    r"^(?:>|>=|greater\s*than)\s*(?P<val>\d+(?:\.\d+)?)$",
+    r"^(?:>|>=|greater\s*than)\s*(?P<val>-?\d+(?:\.\d+)?)$",
     re.IGNORECASE,
 )
 
 
 def is_known_unit(token: str) -> bool:
     """Check if token matches or contains a standard lab unit."""
-    cleaned = token.strip().lower()
-    if cleaned in COMMON_UNITS:
+    cleaned = token.strip().strip(":,()[]").lower()
+    if cleaned in COMMON_UNITS or cleaned in OCR_UNIT_ALIASES:
         return True
     # Strip parentheses e.g. (mg/dL)
     stripped = re.sub(r"^[\(\[]|[\)\]]$", "", cleaned)
-    return stripped in COMMON_UNITS
+    return stripped in COMMON_UNITS or stripped in OCR_UNIT_ALIASES
 
 
 def is_abnormal_flag(token: str) -> bool:

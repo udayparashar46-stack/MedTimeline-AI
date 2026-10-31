@@ -137,22 +137,22 @@ class ExtractedResult(Base):
         if not ref_text:
             return None, None
         txt = ref_text.strip()
-        # Range e.g. 13.0 - 17.0 or 70 - 110
-        range_match = re.search(r"(\d+(?:\.\d+)?)\s*[-–—to]\s*(\d+(?:\.\d+)?)", txt, re.IGNORECASE)
+        # Range e.g. 13.0 - 17.0 or -2.0 - 2.0 or 70 - 110
+        range_match = re.search(r"(-?\d+(?:\.\d+)?)\s*[-–—to]\s*(-?\d+(?:\.\d+)?)", txt, re.IGNORECASE)
         if range_match:
             try:
                 return float(range_match.group(1)), float(range_match.group(2))
             except ValueError:
                 pass
         # Upper bound e.g. < 200 or Up to 150
-        upper_match = re.search(r"(?:<|<=|up\s*to\s*less\s*than)\s*(\d+(?:\.\d+)?)", txt, re.IGNORECASE)
+        upper_match = re.search(r"(?:<|<=|up\s*to\s*less\s*than)\s*(-?\d+(?:\.\d+)?)", txt, re.IGNORECASE)
         if upper_match:
             try:
                 return None, float(upper_match.group(1))
             except ValueError:
                 pass
         # Lower bound e.g. > 50 or >= 40
-        lower_match = re.search(r"(?:>|>=|greater\s*than)\s*(\d+(?:\.\d+)?)", txt, re.IGNORECASE)
+        lower_match = re.search(r"(?:>|>=|greater\s*than)\s*(-?\d+(?:\.\d+)?)", txt, re.IGNORECASE)
         if lower_match:
             try:
                 return float(lower_match.group(1)), None

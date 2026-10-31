@@ -213,7 +213,6 @@ export const TimelinePage: React.FC<TimelinePageProps> = ({
             <h1 style={{ fontSize: '24px', fontWeight: 700, margin: 0 }}>
               Chronological Lab Timeline
             </h1>
-            <Badge variant="neutral">Milestone 8 &amp; 9</Badge>
           </div>
           <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
             Track clinical biomarker trends across confirmed reports over time. Zero invented values.
@@ -408,6 +407,56 @@ export const TimelinePage: React.FC<TimelinePageProps> = ({
         </div>
       )}
 
+      {/* Clinical Interpretation & Verification Legend */}
+      <Card style={{ backgroundColor: 'var(--surface-muted)' }}>
+        <CardContent style={{ padding: '12px 18px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Clinical Legend &amp; Reference Guide
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                Zero invented values · Missing results remain blank (—) · Click any result to view original report evidence
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '16px', fontSize: '12px' }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--text-muted)' }} />
+                <span><strong>Within Reference Range</strong></span>
+              </div>
+
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ padding: '1px 6px', borderRadius: '4px', backgroundColor: 'var(--flag-high, #FDE8E6)', color: 'var(--danger)', fontWeight: 700, fontSize: '11px' }}>
+                  ▲ Above Reference Range
+                </span>
+              </div>
+
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ padding: '1px 6px', borderRadius: '4px', backgroundColor: 'var(--flag-low, #E6F0FD)', color: 'var(--info)', fontWeight: 700, fontSize: '11px' }}>
+                  ▼ Below Reference Range
+                </span>
+              </div>
+
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ borderBottom: '2px dashed var(--warning)', paddingBottom: '1px', fontWeight: 600, color: 'var(--text)' }}>
+                  Needs Review
+                </span>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>(AI-extracted)</span>
+              </div>
+
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <Badge variant="confirmed">Doctor Verified</Badge>
+              </div>
+            </div>
+
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', borderTop: '1px solid var(--border)', paddingTop: '6px', marginTop: '2px' }}>
+              ℹ️ <strong>Clinical Note:</strong> Reference range indicators identify values outside normal lab intervals and do not constitute a medical diagnosis. Always correlate with clinical findings and patient history.
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Matrix Table */}
       {isLoadingTimeline ? (
         <Card>
@@ -457,7 +506,7 @@ export const TimelinePage: React.FC<TimelinePageProps> = ({
             >
               <thead>
                 <tr>
-                  {/* Sticky Top-Left Corner Header */}
+                  {/* Sticky Top-Left Corner Header: Test Name */}
                   <th
                     style={{
                       position: 'sticky',
@@ -466,17 +515,51 @@ export const TimelinePage: React.FC<TimelinePageProps> = ({
                       zIndex: 3,
                       backgroundColor: 'var(--surface-muted)',
                       borderBottom: '2px solid var(--border)',
-                      borderRight: '2px solid var(--border)',
+                      borderRight: '1px solid var(--border)',
                       padding: '12px 16px',
                       textAlign: 'left',
-                      minWidth: '240px',
+                      minWidth: '220px',
                       boxShadow: '2px 0 4px rgba(0,0,0,0.04)',
                     }}
                   >
-                    <div style={{ fontWeight: 700, color: 'var(--text)' }}>Test / Biomarker</div>
+                    <div style={{ fontWeight: 700, color: 'var(--text)' }}>Test Name</div>
                     <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 400 }}>
-                      Standard unit in brackets
+                      Standardized analyte
                     </div>
+                  </th>
+
+                  {/* Explicit Unit Column Header */}
+                  <th
+                    style={{
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 2,
+                      backgroundColor: 'var(--surface-muted)',
+                      borderBottom: '2px solid var(--border)',
+                      borderRight: '1px solid var(--border)',
+                      padding: '12px 14px',
+                      textAlign: 'left',
+                      minWidth: '90px',
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, color: 'var(--text)' }}>Unit</div>
+                  </th>
+
+                  {/* Explicit Reference Range Column Header */}
+                  <th
+                    style={{
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 2,
+                      backgroundColor: 'var(--surface-muted)',
+                      borderBottom: '2px solid var(--border)',
+                      borderRight: '1px solid var(--border)',
+                      padding: '12px 14px',
+                      textAlign: 'left',
+                      minWidth: '130px',
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, color: 'var(--text)' }}>Reference Range</div>
                   </th>
 
                   {/* Chronological Report Date Columns */}
@@ -526,7 +609,7 @@ export const TimelinePage: React.FC<TimelinePageProps> = ({
                       {/* Collapsible Category Section Heading */}
                       <tr>
                         <td
-                          colSpan={timelineData.columns.length + 1}
+                          colSpan={timelineData.columns.length + 3}
                           onClick={() => toggleCategoryCollapse(category)}
                           style={{
                             backgroundColor: 'rgba(15, 118, 110, 0.05)',
@@ -563,7 +646,7 @@ export const TimelinePage: React.FC<TimelinePageProps> = ({
                                 left: 0,
                                 zIndex: 1,
                                 backgroundColor: 'var(--surface)',
-                                borderRight: '2px solid var(--border)',
+                                borderRight: '1px solid var(--border)',
                                 borderBottom: '1px solid var(--border)',
                                 padding: '10px 16px',
                                 boxShadow: '2px 0 4px rgba(0,0,0,0.04)',
@@ -585,10 +668,36 @@ export const TimelinePage: React.FC<TimelinePageProps> = ({
                                   </span>
                                 )}
                               </div>
-                              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                                {row.preferred_unit ||
-                                  (row.observed_units.length > 0 ? row.observed_units[0] : '—')}
-                              </div>
+                            </td>
+
+                            {/* Explicit Unit Column */}
+                            <td
+                              style={{
+                                borderRight: '1px solid var(--border)',
+                                borderBottom: '1px solid var(--border)',
+                                padding: '10px 14px',
+                                fontSize: '12px',
+                                color: 'var(--text-muted)',
+                                backgroundColor: 'var(--surface)',
+                              }}
+                            >
+                              {row.preferred_unit ||
+                                (row.observed_units.length > 0 ? row.observed_units[0] : '—')}
+                            </td>
+
+                            {/* Explicit Reference Range Column */}
+                            <td
+                              style={{
+                                borderRight: '2px solid var(--border)',
+                                borderBottom: '1px solid var(--border)',
+                                padding: '10px 14px',
+                                fontSize: '12px',
+                                color: 'var(--text-muted)',
+                                backgroundColor: 'var(--surface)',
+                              }}
+                            >
+                              {row.standard_reference_range ||
+                                (row.observed_units.length > 0 ? 'Lab-specific' : '—')}
                             </td>
 
                             {/* Chronological Cells */}
@@ -617,6 +726,12 @@ export const TimelinePage: React.FC<TimelinePageProps> = ({
                               const isHighFlag = cell.printed_flag === 'H' || cell.printed_flag === 'HIGH';
                               const isLowFlag = cell.printed_flag === 'L' || cell.printed_flag === 'LOW';
                               const isUnreviewed = cell.review_status === 'unreviewed';
+                              const rangeLabel = isHighFlag
+                                ? 'Above Reference Range'
+                                : isLowFlag
+                                ? 'Below Reference Range'
+                                : 'Within Reference Range';
+                              const reviewLabel = isUnreviewed ? 'Needs Review (AI Extracted)' : 'Doctor Verified';
 
                               let cellBg = 'var(--surface)';
                               let cellColor = 'var(--text)';
@@ -648,7 +763,7 @@ export const TimelinePage: React.FC<TimelinePageProps> = ({
                                     cursor: 'pointer',
                                     transition: 'background-color 150ms ease-out',
                                   }}
-                                  title="Click to view original source evidence in drawer"
+                                  title={`${row.test_name}: ${cell.effective_value_text} ${cell.effective_unit || ''} · ${rangeLabel} · ${reviewLabel} — Click to view source evidence`}
                                 >
                                   <div
                                     style={{
@@ -757,19 +872,21 @@ export const TimelinePage: React.FC<TimelinePageProps> = ({
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
                 <Badge
                   variant={
-                    activeCell.cell.review_status === 'confirmed'
+                    activeCell.cell.review_status === 'confirmed' || activeCell.cell.review_status === 'edited'
                       ? 'confirmed'
-                      : activeCell.cell.review_status === 'edited'
-                      ? 'neutral'
                       : 'warning'
                   }
                 >
-                  {activeCell.cell.review_status}
+                  {activeCell.cell.review_status === 'unreviewed' ? 'Needs Review' : 'Doctor Verified'}
                 </Badge>
-                {activeCell.cell.printed_flag && (
-                  <Badge variant="danger">
-                    Flag: {activeCell.cell.printed_flag}
+                {activeCell.cell.printed_flag ? (
+                  <Badge variant={activeCell.cell.printed_flag === 'H' || activeCell.cell.printed_flag === 'HIGH' ? 'danger' : 'info'}>
+                    {activeCell.cell.printed_flag === 'H' || activeCell.cell.printed_flag === 'HIGH'
+                      ? '▲ Above Reference Range'
+                      : '▼ Below Reference Range'}
                   </Badge>
+                ) : (
+                  <Badge variant="neutral">Within Reference Range</Badge>
                 )}
               </div>
             </div>

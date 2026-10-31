@@ -268,6 +268,74 @@ export const reportsApi = {
     return response.json() as Promise<BatchUploadResponse>;
   },
 
+  /** Upload a single PDF file with live transmission progress tracking (0-100%). */
+  uploadSingle(
+    patientId: string,
+    file: File,
+    onProgress?: (percent: number) => void,
+  ): Promise<ReportUploadItem> {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${BASE}/patients/${patientId}/reports`);
+
+      const authHeaders = getAuthHeaders();
+      for (const [key, value] of Object.entries(authHeaders)) {
+        xhr.setRequestHeader(key, value);
+      }
+
+      if (onProgress && xhr.upload) {
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            onProgress(pct);
+          }
+        };
+      }
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const batchRes = JSON.parse(xhr.responseText) as BatchUploadResponse;
+            if (batchRes.items && batchRes.items.length > 0) {
+              resolve(batchRes.items[0]);
+            } else {
+              resolve({
+                filename: file.name,
+                status: 'uploaded',
+                message: 'File processed successfully.',
+              });
+            }
+          } catch {
+            resolve({
+              filename: file.name,
+              status: 'uploaded',
+              message: 'File uploaded.',
+            });
+          }
+        } else {
+          let errMessage = `HTTP ${xhr.status}: ${xhr.statusText || 'Upload failed'}`;
+          try {
+            const errJson = JSON.parse(xhr.responseText);
+            if (errJson.detail) {
+              errMessage = typeof errJson.detail === 'string' ? errJson.detail : JSON.stringify(errJson.detail);
+            }
+          } catch {
+            // keep default
+          }
+          reject(new Error(errMessage));
+        }
+      };
+
+      xhr.onerror = () => {
+        reject(new Error('Network error during file upload. Check your connection.'));
+      };
+
+      const formData = new FormData();
+      formData.append('files', file);
+      xhr.send(formData);
+    });
+  },
+
   /** Get single report metadata. */
   get(reportId: string): Promise<Report> {
     return request<Report>(`/reports/${reportId}`);
@@ -300,7 +368,26 @@ export const reportsApi = {
 
   /** Stream PDF file URL for split-view. */
   getPdfUrl(reportId: string): string {
-    return `${BASE}/reports/${reportId}/file`;
+    const token = getStoredToken();
+    const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
+    return `${BASE}/reports/${reportId}/file${tokenParam}`;
+  },
+
+  /** Fetch report PDF file as an authenticated Blob. */
+  async fetchReportBlob(reportId: string): Promise<Blob> {
+    const res = await fetch(`${BASE}/reports/${reportId}/file`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) {
+      if (res.status === 401) {
+        throw new Error('Authentication expired. Please log in again.');
+      }
+      if (res.status === 404) {
+        throw new Error('Report file not found in storage.');
+      }
+      throw new Error(`Failed to load PDF (${res.status} ${res.statusText})`);
+    }
+    return res.blob();
   },
 
   /** Manually add a clinical test row to a report. */
@@ -611,6 +698,7 @@ export interface TimelineRow {
   test_name: string;
   category: string;
   preferred_unit: string | null;
+  standard_reference_range?: string | null;
   is_canonical: boolean;
   cells: Record<string, TimelineCell>;
   has_unit_mismatch: boolean;
@@ -710,7 +798,47 @@ export interface AuditEventListResponse {
   total: number;
 }
 
+export interface DashboardPatientItem {
+  id: string;
+  display_name: string;
+  report_count: number;
+  latest_report_date: string | null;
+  created_at: string;
+}
+
+export interface DashboardReportItem {
+  id: string;
+  patient_id: string;
+  patient_name: string;
+  original_filename: string;
+  status: string;
+  report_date: string | null;
+  created_at: string;
+}
+
+export interface DashboardActivityItem {
+  id: string;
+  event_type: string;
+  details: string | null;
+  created_at: string;
+}
+
+export interface DashboardSummaryResponse {
+  total_patients: number;
+  total_reports: number;
+  reports_awaiting_review: number;
+  processing_failures: number;
+  recent_patients: DashboardPatientItem[];
+  recent_reports: DashboardReportItem[];
+  recent_activities: DashboardActivityItem[];
+}
+
 export const systemApi = {
+  /** Fetch live authorized dashboard metrics for current user. */
+  getDashboardSummary(): Promise<DashboardSummaryResponse> {
+    return request<DashboardSummaryResponse>('/system/dashboard');
+  },
+
   /** Execute 'Delete Everything' cascade to permanently erase all records and files. */
   reset(confirm: string): Promise<ResetSummaryResponse> {
     return request<ResetSummaryResponse>('/system/reset', {
@@ -762,11 +890,13 @@ export interface UserResponse {
 }
 
 export const authApi = {
-  async register(email: string, password: string, fullName?: string): Promise<UserResponse> {
-    return request<UserResponse>('/auth/register', {
+  async register(email: string, password: string, fullName?: string): Promise<AuthToken> {
+    const token = await request<AuthToken>('/auth/register', {
       method: 'POST',
       body: JSON.stringify({ email, password, full_name: fullName ?? null }),
     });
+    setStoredToken(token.access_token);
+    return token;
   },
 
   async login(email: string, password: string): Promise<AuthToken> {

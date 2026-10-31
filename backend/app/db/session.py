@@ -12,14 +12,37 @@ from typing import Generator
 
 from app.core.config import settings
 
+# Anchor the repo root relative to this file's location, not CWD.
+# session.py lives at: backend/app/db/session.py
+# parents: [0]=db/, [1]=app/, [2]=backend/, [3]=repo root
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+
+
+def _resolve_dir(configured: str) -> Path:
+    """Resolve a configured directory path.
+
+    If the path is absolute, use it as-is.
+    If relative, resolve it so that paths like '../data' (relative to backend/)
+    or 'data' (relative to repo root) both resolve to <repo_root>/data,
+    ensuring a stable location regardless of the current working directory.
+    """
+    p = Path(configured)
+    if p.is_absolute():
+        return p
+    if p.parts and p.parts[0] == "..":
+        backend_dir = _REPO_ROOT / "backend"
+        return (backend_dir / p).resolve()
+    return (_REPO_ROOT / p).resolve()
+
+
 if settings.DATABASE_URL:
     db_url = settings.DATABASE_URL
     # Render/Heroku fix: replace postgres:// with postgresql:// for SQLAlchemy 2.0
     if db_url.startswith("postgres://"):
         db_url = db_url.replace("postgres://", "postgresql://", 1)
 else:
-    # Ensure the data/ directory exists
-    data_dir = Path(settings.DATABASE_DIR).resolve()
+    # Resolve relative to repo root to avoid CWD-dependent path bugs
+    data_dir = _resolve_dir(settings.DATABASE_DIR)
     data_dir.mkdir(parents=True, exist_ok=True)
     db_url = f"sqlite:///{data_dir / settings.DATABASE_FILE}"
 

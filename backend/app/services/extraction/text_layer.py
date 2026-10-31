@@ -73,9 +73,32 @@ def detect_text_layer(pdf_bytes: bytes) -> TextLayerResult:
     )
 
     if is_insufficient_text:
+        # Attempt OCR where feasible if OCR is enabled
+        try:
+            from app.core.config import settings
+            from app.services.extraction.ocr import get_ocr_engine
+            if getattr(settings, "OCR_ENABLED", True):
+                ocr_engine = get_ocr_engine()
+                ocr_res = ocr_engine.extract_text_from_pdf(pdf_bytes)
+                if ocr_res.success and ocr_res.total_characters >= MIN_CHAR_COUNT_TOTAL:
+                    return TextLayerResult(
+                        has_text_layer=True,
+                        is_scanned=True,
+                        total_characters=ocr_res.total_characters,
+                        page_count=page_count,
+                        full_text=ocr_res.full_text,
+                        pages_text=[p.text for p in ocr_res.pages],
+                        warning_message=(
+                            "Optical Character Recognition (OCR) extracted text from this scanned image. "
+                            "Please carefully verify extracted values against original report in the Review modal."
+                        ),
+                    )
+        except Exception as e:
+            logger.warning(f"Fallback OCR in text_layer failed: {e}")
+
         warning = (
-            "No readable text found. Scanned or image-only reports are not supported by the "
-            "deterministic parser (OCR is planned for v1.1). Manual entry only."
+            "No readable text found. This document appears to be a scanned or image-only PDF without a digital text layer. "
+            "OCR engine is not configured in this environment; manual result entry is supported in the Review modal."
         )
         return TextLayerResult(
             has_text_layer=False,

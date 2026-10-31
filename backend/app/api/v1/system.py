@@ -8,10 +8,10 @@ Implements:
 
 import os
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, List
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, or_
 from pydantic import BaseModel, Field
 
 from app.db.session import get_db
@@ -26,6 +26,12 @@ from app.repositories import audit_repo
 from app.services.normalization.seeder import seed_canonical_tests
 from app.core.config import settings
 from app.api.deps import get_current_user, verify_patient_access
+from app.schemas.dashboard import (
+    DashboardSummaryResponse,
+    DashboardPatientItem,
+    DashboardReportItem,
+    DashboardActivityItem,
+)
 
 router = APIRouter(tags=["system", "portability"])
 
@@ -41,6 +47,108 @@ class ResetSummaryResponse(BaseModel):
     results_deleted: int
     files_deleted: int
     message: str
+
+
+@router.get("/system/dashboard", response_model=DashboardSummaryResponse)
+def get_dashboard_summary(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> DashboardSummaryResponse:
+    """Return live dashboard statistics computed strictly from database records for the current user."""
+    # 1. Fetch active patients for this user
+    owner_filter = None if current_user.is_superuser else current_user.id
+    patients_q = select(Patient).where(Patient.is_deleted == False)
+    if owner_filter:
+        patients_q = patients_q.where(
+            or_(Patient.owner_id == owner_filter, Patient.owner_id.is_(None))
+        )
+    patients = list(db.execute(patients_q.order_by(Patient.created_at.desc())).scalars().all())
+    patient_ids = [p.id for p in patients]
+    patient_map = {p.id: p.display_name for p in patients}
+
+    total_patients = len(patients)
+
+    if not patient_ids:
+        return DashboardSummaryResponse(
+            total_patients=0,
+            total_reports=0,
+            reports_awaiting_review=0,
+            processing_failures=0,
+            recent_patients=[],
+            recent_reports=[],
+            recent_activities=[],
+        )
+
+    # 2. Fetch reports for these patients
+    reports_q = select(Report).where(
+        Report.patient_id.in_(patient_ids),
+        Report.is_deleted == False,
+    ).order_by(Report.created_at.desc())
+    reports = list(db.execute(reports_q).scalars().all())
+
+    total_reports = len(reports)
+    awaiting_review = sum(1 for r in reports if r.status == "needs_review")
+    failures = sum(1 for r in reports if r.status == "failed")
+
+    # Map reports per patient
+    patient_reports_count: Dict[str, int] = {}
+    patient_latest_date: Dict[str, str | None] = {}
+    for r in reports:
+        patient_reports_count[r.patient_id] = patient_reports_count.get(r.patient_id, 0) + 1
+        if r.patient_id not in patient_latest_date or (r.report_date and not patient_latest_date[r.patient_id]):
+            patient_latest_date[r.patient_id] = r.report_date
+
+    # Build recent patients (up to 5)
+    recent_patients = [
+        DashboardPatientItem(
+            id=p.id,
+            display_name=p.display_name,
+            report_count=patient_reports_count.get(p.id, 0),
+            latest_report_date=patient_latest_date.get(p.id),
+            created_at=p.created_at,
+        )
+        for p in patients[:5]
+    ]
+
+    # Build recent reports (up to 5)
+    recent_reports = [
+        DashboardReportItem(
+            id=r.id,
+            patient_id=r.patient_id,
+            patient_name=patient_map.get(r.patient_id, "Unknown"),
+            original_filename=r.original_filename,
+            status=r.status,
+            report_date=r.report_date,
+            created_at=r.created_at,
+        )
+        for r in reports[:5]
+    ]
+
+    # 3. Fetch recent audit events for these patients
+    events_q = select(AuditEvent).where(
+        AuditEvent.patient_id.in_(patient_ids)
+    ).order_by(AuditEvent.created_at.desc()).limit(6)
+    events = list(db.execute(events_q).scalars().all())
+
+    recent_activities = [
+        DashboardActivityItem(
+            id=e.id,
+            event_type=e.event_type,
+            details=e.details,
+            created_at=e.created_at,
+        )
+        for e in events
+    ]
+
+    return DashboardSummaryResponse(
+        total_patients=total_patients,
+        total_reports=total_reports,
+        reports_awaiting_review=awaiting_review,
+        processing_failures=failures,
+        recent_patients=recent_patients,
+        recent_reports=recent_reports,
+        recent_activities=recent_activities,
+    )
 
 
 @router.post("/system/reset", response_model=ResetSummaryResponse)

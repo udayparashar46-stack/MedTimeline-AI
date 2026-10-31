@@ -22,11 +22,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const navItems: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-    { id: 'patients', label: 'Patients', icon: '👥', badge: '12' },
+    { id: 'patients', label: 'Patients', icon: '👥' },
     { id: 'timeline', label: 'Report Timeline', icon: '📈' },
     { id: 'upload', label: 'Upload Reports', icon: '📤' },
     { id: 'settings', label: 'Settings', icon: '⚙️' },
-    { id: 'styleguide', label: 'UI Styleguide', icon: '🎨', badge: 'M1' },
+    { id: 'styleguide', label: 'UI Styleguide', icon: '🎨' },
   ];
 
   return (

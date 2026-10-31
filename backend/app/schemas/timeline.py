@@ -45,6 +45,7 @@ class TimelineRow(BaseModel):
     test_name: str = Field(..., description="Display test name (canonical if mapped, else raw)")
     category: str = Field("Ungrouped", description="Category heading e.g. 'Complete Blood Count'")
     preferred_unit: Optional[str] = None
+    standard_reference_range: Optional[str] = Field(None, description="Laboratory reference range or 'Lab-specific'")
     is_canonical: bool = True
     # Keyed by report_id -> TimelineCell
     cells: Dict[str, TimelineCell] = Field(default_factory=dict)

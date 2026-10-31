@@ -4,7 +4,7 @@ services:
     env: python
     plan: free
     rootDir: .
-    buildCommand: "cd frontend && npm ci && npm run build && cd .. && pip install -r backend/requirements.txt"
+    buildCommand: "cd frontend && npm ci && npm run build && cd .. && pip install -r backend/requirements.txt && cd backend && python -c \"import app.services.extraction.ocr.engine as e; print('Tessdata ready at:', e.get_tessdata_dir())\""
     startCommand: "cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
     healthCheckPath: /api/v1/health
     envVars:
@@ -20,6 +20,10 @@ services:
           property: connectionString
       - key: UPLOAD_DIR
         value: /tmp/uploads
+      - key: STORAGE_BACKEND
+        value: local
+      - key: OCR_ENABLED
+        value: "true"
       - key: AUTH_REQUIRED
         value: "true"
 

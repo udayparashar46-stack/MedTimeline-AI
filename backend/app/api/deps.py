@@ -1,6 +1,6 @@
 """FastAPI dependencies for authentication, active user checks, and patient workspace isolation."""
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
@@ -18,17 +18,19 @@ http_bearer = HTTPBearer(auto_error=False)
 
 def get_current_user(
     auth: HTTPAuthorizationCredentials | None = Depends(http_bearer),
+    token: str | None = Query(None, description="Optional bearer token for media streaming"),
     db: Session = Depends(get_db),
 ) -> User:
     """Validate Bearer JWT access token and return the active User."""
-    if not auth or not auth.credentials:
+    raw_token = auth.credentials if (auth and auth.credentials) else token
+    if not raw_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication credentials were not provided.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    payload = decode_access_token(auth.credentials)
+    payload = decode_access_token(raw_token)
     if not payload or not payload.get("sub"):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

@@ -247,12 +247,26 @@ def build_patient_timeline(
         # Unit mismatch if more than 1 distinct unit observed
         has_mismatch = len(observed_units_list) > 1
 
+        # Determine reference range for the test row
+        distinct_refs = {
+            c.effective_reference_text.strip()
+            for c in row_data["cells"].values()
+            if c.effective_reference_text and c.effective_reference_text.strip()
+        }
+        if len(distinct_refs) == 1:
+            ref_range_display = next(iter(distinct_refs))
+        elif len(distinct_refs) > 1:
+            ref_range_display = "Lab-specific"
+        else:
+            ref_range_display = None
+
         timeline_rows.append(
             TimelineRow(
                 test_id=row_data["test_id"],
                 test_name=row_data["test_name"],
                 category=cat,
                 preferred_unit=row_data["preferred_unit"],
+                standard_reference_range=ref_range_display,
                 is_canonical=row_data["is_canonical"],
                 cells=row_data["cells"],
                 has_unit_mismatch=has_mismatch,

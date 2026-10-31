@@ -207,7 +207,7 @@ def _draw_table_headers(
     )
     page.insert_text(
         fitz.Point(MARGIN_LEFT + 8, y + 23),
-        "Standard Unit",
+        "Unit & Reference Range",
         fontname="helv",
         fontsize=7,
         color=COLOR_TEXT_MUTED,
@@ -391,7 +391,7 @@ def export_patient_timeline_pdf(
                     display_name = display_name[:26] + ".."
 
                 page.insert_text(
-                    fitz.Point(MARGIN_LEFT + 8, y + 12),
+                    fitz.Point(MARGIN_LEFT + 8, y + 11),
                     display_name,
                     fontname="hebo" if row_data.is_canonical else "helv",
                     fontsize=8.0,
@@ -399,10 +399,17 @@ def export_patient_timeline_pdf(
                 )
 
                 unit_str = row_data.preferred_unit or (row_data.observed_units[0] if row_data.observed_units else "")
-                if unit_str:
+                ref_str = row_data.standard_reference_range
+                sub_meta = unit_str
+                if ref_str:
+                    sub_meta = f"{unit_str} | Ref: {ref_str}" if unit_str else f"Ref: {ref_str}"
+                if len(sub_meta) > 36:
+                    sub_meta = sub_meta[:34] + ".."
+
+                if sub_meta:
                     page.insert_text(
                         fitz.Point(MARGIN_LEFT + 8, y + 18),
-                        unit_str,
+                        sub_meta,
                         fontname="helv",
                         fontsize=6.5,
                         color=COLOR_TEXT_MUTED,

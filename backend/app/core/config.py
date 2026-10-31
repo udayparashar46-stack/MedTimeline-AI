@@ -48,8 +48,19 @@ class Settings(BaseSettings):
 
     # Local uploads storage directory (git-ignored)
     UPLOAD_DIR: str = "../data/uploads"
-    MAX_FILE_SIZE_BYTES: int = 20 * 1024 * 1024  # 20 MB limit
+    MAX_FILE_SIZE_BYTES: int = 25 * 1024 * 1024  # 25 MB safe default limit
     MAX_FILES_PER_BATCH: int = 25
+
+    # Storage Backend: "local" (default) or "s3" (AWS S3, Cloudflare R2, MinIO)
+    STORAGE_BACKEND: str = "local"
+    S3_BUCKET_NAME: str | None = None
+    S3_REGION_NAME: str | None = None
+    S3_ENDPOINT_URL: str | None = None
+    S3_ACCESS_KEY_ID: str | None = None
+    S3_SECRET_ACCESS_KEY: str | None = None
+
+    # OCR feature configuration
+    OCR_ENABLED: bool = True
 
     model_config = SettingsConfigDict(case_sensitive=True, env_file=".env", extra="ignore")
 

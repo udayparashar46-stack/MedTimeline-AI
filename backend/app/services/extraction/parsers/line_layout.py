@@ -19,6 +19,7 @@ from app.services.extraction.parsers.values import (
     is_qualitative_value,
     parse_value_token,
     parse_reference_interval,
+    OCR_UNIT_ALIASES,
 )
 
 # Common clinical section headings
@@ -32,18 +33,22 @@ SECTION_HEADER_REGEX = re.compile(
 
 # Common metadata labels to skip
 METADATA_LINE_REGEX = re.compile(
-    r"^(?:patient name|patient id|pt id|mrn|name|age|gender|sex|referred by|dr\.|doctor|"
+    r"^(?:patient\b|patient name|patient id|pt id|mrn|name\s*:|age|gender|sex|referred by|dr\.|doctor|"
     r"specimen|sample type|collected|collection date|reported|reporting date|printed|print date|"
     r"page\s+\d+|phone|hospital|clinic|diagnostic|laboratory|address|lab no|reg no|barcode|"
     r"investigation|test name|parameter|result|units?|ref(?:erence)?\s*(?:interval|range)?|flag|"
-    r"bio\.?\s*ref\.?\s*interval|biological reference interval|status|method)\b",
+    r"bio\.?\s*ref\.?\s*interval|biological reference interval|status|method|nabl|iso\s*\d+|"
+    r"accredited|accreditation|department of|national reference laboratory|head office|"
+    r"branch\s*office|email|website|tel(?:ephone)?|fax|contact\s*no|gstin)\b",
     re.IGNORECASE,
 )
 
 # Common footer tokens to skip
 FOOTER_LINE_REGEX = re.compile(
     r"^(?:end of report|verified by|pathologist|technician|signature|disclaimer|notes?:|"
-    r"interpretation|comments?:|please correlate clinically|tested on|sample processed)\b",
+    r"interpretation|comments?:|please correlate clinically|tested on|sample processed|"
+    r"this is an electronically generated|medical disclaimer|report printed on|printed on|"
+    r"authorized signatory|chief pathologist|senior resident|consultant biochemist)\b",
     re.IGNORECASE,
 )
 
@@ -72,12 +77,10 @@ def is_non_result_line(text: str) -> Tuple[bool, str]:
         return True, "report_footer"
 
     if METADATA_LINE_REGEX.search(cleaned):
-        # Exception: some tests might have "Test" in name, but if line contains column header pattern
         lower = cleaned.lower()
         if ("result" in lower or "value" in lower) and ("unit" in lower or "ref" in lower):
             return True, "table_column_header"
-        if any(k in lower for k in ["patient name", "mrn", "collected", "reported", "page ", "referred by"]):
-            return True, "page_metadata"
+        return True, "page_metadata"
 
     return False, ""
 
@@ -91,7 +94,17 @@ def parse_line_tokens(
     raw_text = line.text.strip()
 
     # Step 1: Split line into space-delimited tokens
-    tokens = raw_text.split()
+    raw_tokens = raw_text.split()
+    tokens = []
+    for t in raw_tokens:
+        # Split glued tokens from OCR (e.g., '14.5mg/dL' -> '14.5', 'mg/dL' or '220000/mcL' -> '220000', '/mcL')
+        m = re.match(r"^([<>]?=?[-+]?\d+(?:\.\d+)?)([a-zA-Z/%].+)$", t)
+        if m:
+            tokens.append(m.group(1))
+            tokens.append(m.group(2))
+        else:
+            tokens.append(t)
+
     if len(tokens) < 2:
         return None, SkippedLine(page_number=line.page_number, text=raw_text, reason="too_few_tokens")
 
@@ -108,6 +121,13 @@ def parse_line_tokens(
         token = tokens[i]
         is_val, v_str, v_num, v_comp, v_flag = parse_value_token(token)
         if is_val:
+            # Clinical guard: Check if this token is actually part of a test name:
+            # e.g., "HIV 1 & 2 Antibody", "HSV 1/2 IgG", "Type 1", "IL 6 Antigen"
+            if i + 1 < len(tokens):
+                next_tok = tokens[i + 1].lower().strip(":,()[]")
+                if next_tok in ["&", "and", "+", "/", "antibody", "antigen", "type", "fraction", "igg", "igm", "iga"]:
+                    continue
+
             # Check if immediately preceded by a comparator token (e.g. ['<', '0.5'])
             if i > 1 and tokens[i - 1] in ["<", ">", "<=", ">="]:
                 value_idx = i - 1
@@ -183,7 +203,8 @@ def parse_line_tokens(
 
         # Check for unit
         if is_known_unit(tok) and not unit_str:
-            unit_str = tok
+            clean_tok = tok.strip().strip(":,()[]").lower()
+            unit_str = OCR_UNIT_ALIASES.get(clean_tok, tok)
             rem_idx += 1
             continue
 

@@ -233,3 +233,82 @@ class TestWorkspaceIsolation:
         assert resp.status_code == 200
         assert resp.json()["email"] == "me@example.com"
         assert resp.json()["full_name"] == "Me User"
+
+
+class TestAuthAndDashboardIntegrity:
+    """Verifies authentication lifecycle, deleted/missing user handling, and dashboard accuracy."""
+
+    def test_token_with_nonexistent_user_returns_401(self, auth_client: TestClient) -> None:
+        """When a valid JWT token contains a user_id that does not exist in the active DB,
+        the API must reject with 401 and the specific message.
+        """
+        from app.core.security import create_access_token
+        fake_token = create_access_token(subject="nonexistent-user-id-99999")
+
+        # Try to register a patient with this stale token
+        resp = auth_client.post(
+            "/api/v1/patients",
+            json={"display_name": "Ghost Patient"},
+            headers={"Authorization": f"Bearer {fake_token}"},
+        )
+        assert resp.status_code == 401
+        assert resp.json()["detail"] == "User associated with token no longer exists."
+
+    def test_dashboard_reflects_actual_database_records_and_isolation(self, auth_client: TestClient) -> None:
+        """Dashboard counts must strictly reflect actual database records and enforce tenant isolation."""
+        # 1. Register User 1
+        reg1 = auth_client.post(
+            "/api/v1/auth/register",
+            json={"email": "doc1@example.com", "password": "Doc1Password123", "full_name": "Dr. One"},
+        )
+        token1 = reg1.json()["access_token"]
+
+        # Dashboard for new user with 0 patients
+        dash1_empty = auth_client.get(
+            "/api/v1/system/dashboard",
+            headers={"Authorization": f"Bearer {token1}"},
+        )
+        assert dash1_empty.status_code == 200
+        d1 = dash1_empty.json()
+        assert d1["total_patients"] == 0
+        assert d1["total_reports"] == 0
+        assert d1["reports_awaiting_review"] == 0
+        assert d1["processing_failures"] == 0
+        assert d1["recent_patients"] == []
+
+        # User 1 registers a patient
+        p_resp = auth_client.post(
+            "/api/v1/patients",
+            json={"display_name": "Patient Alpha", "sex": "male"},
+            headers={"Authorization": f"Bearer {token1}"},
+        )
+        assert p_resp.status_code == 201
+
+        # Dashboard for User 1 must now show exactly 1 patient
+        dash1_after = auth_client.get(
+            "/api/v1/system/dashboard",
+            headers={"Authorization": f"Bearer {token1}"},
+        )
+        assert dash1_after.status_code == 200
+        d1_after = dash1_after.json()
+        assert d1_after["total_patients"] == 1
+        assert d1_after["total_reports"] == 0
+        assert len(d1_after["recent_patients"]) == 1
+        assert d1_after["recent_patients"][0]["display_name"] == "Patient Alpha"
+
+        # 2. Register User 2 — must see 0 patients (strict isolation, no leakage)
+        reg2 = auth_client.post(
+            "/api/v1/auth/register",
+            json={"email": "doc2@example.com", "password": "Doc2Password123", "full_name": "Dr. Two"},
+        )
+        token2 = reg2.json()["access_token"]
+
+        dash2 = auth_client.get(
+            "/api/v1/system/dashboard",
+            headers={"Authorization": f"Bearer {token2}"},
+        )
+        assert dash2.status_code == 200
+        d2 = dash2.json()
+        assert d2["total_patients"] == 0
+        assert d2["total_reports"] == 0
+        assert d2["recent_patients"] == []

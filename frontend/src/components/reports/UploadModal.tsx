@@ -1,11 +1,12 @@
 /**
- * UploadModal.tsx — Multi-PDF report upload modal for a patient workspace.
+ * UploadModal.tsx — Reliable Multi-PDF report upload modal with per-file progress and retry.
  *
- * Implements M3 requirements:
+ * Implements:
  * - Multi-file drag-and-drop or file browser via FileDropzone
- * - Validates PDF extension, size limit (20 MB), and content on server
- * - Live per-file progress and result items (Uploaded, Duplicate Skipped, Failed)
- * - Clear warning when duplicate SHA-256 files are detected
+ * - Individual transmission progress bar (0% to 100%)
+ * - Live status indicators (Pending, Uploading, Processing, Uploaded, Duplicate Skipped, Failed)
+ * - Per-file retry button on failure without losing successful uploads
+ * - Detailed error messages and batch summary
  */
 
 import React, { useState } from 'react';
@@ -13,7 +14,7 @@ import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { FileDropzone } from '../ui/FileDropzone';
-import { reportsApi, type ReportUploadItem } from '../../lib/apiClient';
+import { reportsApi } from '../../lib/apiClient';
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -24,10 +25,36 @@ interface UploadModalProps {
 }
 
 interface FileUploadState {
+  id: string;
   file: File;
-  status: 'pending' | 'uploading' | 'uploaded' | 'duplicate_skipped' | 'failed';
+  status: 'pending' | 'uploading' | 'processing' | 'uploaded' | 'duplicate_skipped' | 'failed';
+  progress: number;
   message?: string | null;
 }
+
+const formatDoctorFriendlyError = (rawMsg: string | null | undefined): string => {
+  if (!rawMsg) return 'Unable to process this file. Please verify it is a valid PDF, image, or Word report and retry.';
+  const lower = rawMsg.toLowerCase();
+  if (lower.includes('invalid file format') || lower.includes('unsupported file format') || lower.includes('missing %pdf header')) {
+    return 'Unsupported or invalid format. Supported formats: PDF, JPG, PNG, TIFF, and DOCX.';
+  }
+  if (lower.includes('legacy') || lower.includes('.doc')) {
+    return 'Legacy .doc format cannot be processed directly. Please save or export as PDF or .docx and upload.';
+  }
+  if (lower.includes('decompression bomb') || lower.includes('dimensions')) {
+    return 'Image dimensions exceed safety limits. Please upload a standard laboratory report image or PDF.';
+  }
+  if (lower.includes('exceeds maximum allowed size') || lower.includes('exceeds maximum allowed limit') || lower.includes('50 mb')) {
+    return 'This report exceeds the 25 MB file size limit. Please upload a compressed or individual report.';
+  }
+  if (lower.includes('password') || lower.includes('encrypted')) {
+    return 'This PDF is password-protected. Please remove the password and retry.';
+  }
+  if (lower.includes('corrupted')) {
+    return 'This document appears corrupted or unreadable. Please download a clean copy and retry.';
+  }
+  return rawMsg;
+};
 
 export const UploadModal: React.FC<UploadModalProps> = ({
   isOpen,
@@ -58,16 +85,61 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   };
 
   const handleFilesSelected = (files: File[]) => {
-    // Only accept up to 25 files
     const validBatch = files.slice(0, 25);
     setFileQueue(
-      validBatch.map((f) => ({
+      validBatch.map((f, i) => ({
+        id: `${f.name}-${f.size}-${Date.now()}-${i}`,
         file: f,
         status: 'pending',
+        progress: 0,
       })),
     );
     setSummary(null);
     setBatchError(null);
+  };
+
+  const uploadSingleItem = async (item: FileUploadState): Promise<{ status: string }> => {
+    // Set status to uploading with 0% progress
+    setFileQueue((prev) =>
+      prev.map((q) => (q.id === item.id ? { ...q, status: 'uploading', progress: 0, message: null } : q)),
+    );
+
+    try {
+      const resItem = await reportsApi.uploadSingle(patientId, item.file, (pct) => {
+        setFileQueue((prev) =>
+          prev.map((q) => (q.id === item.id ? { ...q, progress: pct, status: pct === 100 ? 'processing' : 'uploading' } : q)),
+        );
+      });
+
+      setFileQueue((prev) =>
+        prev.map((q) =>
+          q.id === item.id
+            ? {
+                ...q,
+                status: resItem.status,
+                progress: 100,
+                message: resItem.message,
+              }
+            : q,
+        ),
+      );
+      return { status: resItem.status };
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Upload failed.';
+      setFileQueue((prev) =>
+        prev.map((q) =>
+          q.id === item.id
+            ? {
+                ...q,
+                status: 'failed',
+                progress: 0,
+                message: errMsg,
+              }
+            : q,
+        ),
+      );
+      return { status: 'failed' };
+    }
   };
 
   const handleStartUpload = async () => {
@@ -76,58 +148,49 @@ export const UploadModal: React.FC<UploadModalProps> = ({
     setIsUploading(true);
     setBatchError(null);
 
-    // Mark all as uploading
-    setFileQueue((prev) => prev.map((item) => ({ ...item, status: 'uploading' })));
+    let uploadedCount = 0;
+    let skippedCount = 0;
+    let failedCount = 0;
 
-    try {
-      const filesToSend = fileQueue.map((item) => item.file);
-      const res = await reportsApi.upload(patientId, filesToSend);
-
-      // Match results back to queue items
-      const resultMap = new Map<string, ReportUploadItem>();
-      for (const item of res.items) {
-        resultMap.set(item.filename, item);
+    // Process files sequentially to maintain predictable server load and accurate progress
+    for (const item of fileQueue) {
+      if (item.status === 'uploaded' || item.status === 'duplicate_skipped') {
+        if (item.status === 'uploaded') uploadedCount++;
+        else skippedCount++;
+        continue;
       }
 
-      setFileQueue((prev) =>
-        prev.map((item) => {
-          const matched = resultMap.get(item.file.name);
-          if (matched) {
-            return {
-              ...item,
-              status: matched.status,
-              message: matched.message,
-            };
-          }
-          return {
-            ...item,
-            status: 'failed',
-            message: 'Server did not report status for this file.',
-          };
-        }),
-      );
-
-      setSummary({
-        uploaded: res.uploaded_count,
-        skipped: res.skipped_count,
-        failed: res.failed_count,
-      });
-
-      if (res.uploaded_count > 0) {
-        onUploadComplete();
+      const res = await uploadSingleItem(item);
+      if (res.status === 'uploaded') {
+        uploadedCount++;
+      } else if (res.status === 'duplicate_skipped') {
+        skippedCount++;
+      } else {
+        failedCount++;
       }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Upload failed.';
-      setBatchError(msg);
-      setFileQueue((prev) =>
-        prev.map((item) => ({
-          ...item,
-          status: 'failed',
-          message: msg,
-        })),
-      );
-    } finally {
-      setIsUploading(false);
+    }
+
+    setSummary({
+      uploaded: uploadedCount,
+      skipped: skippedCount,
+      failed: failedCount,
+    });
+
+    setIsUploading(false);
+
+    if (uploadedCount > 0) {
+      onUploadComplete();
+    }
+  };
+
+  const handleRetrySingle = async (item: FileUploadState) => {
+    if (isUploading) return;
+    setIsUploading(true);
+    const res = await uploadSingleItem(item);
+    setIsUploading(false);
+
+    if (res.status === 'uploaded') {
+      onUploadComplete();
     }
   };
 
@@ -142,14 +205,14 @@ export const UploadModal: React.FC<UploadModalProps> = ({
       isOpen={isOpen}
       onClose={handleClose}
       title={`Upload Lab Reports — ${patientName}`}
-      description="Upload PDF lab reports. Text-based PDFs up to 20 MB are supported."
+      description="Upload the patient's laboratory reports in PDF format (up to 25 MB per report)."
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         {fileQueue.length === 0 ? (
           <FileDropzone
             onFilesSelected={handleFilesSelected}
             accept=".pdf,application/pdf"
-            maxSizeMB={20}
+            maxSizeMB={25}
             disabled={isUploading}
           />
         ) : (
@@ -162,7 +225,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
               }}
             >
               <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>
-                {fileQueue.length} file{fileQueue.length !== 1 ? 's' : ''} selected
+                {fileQueue.length} file{fileQueue.length !== 1 ? 's' : ''} in queue
               </span>
               {!isUploading && !summary && (
                 <button
@@ -183,10 +246,10 @@ export const UploadModal: React.FC<UploadModalProps> = ({
               )}
             </div>
 
-            {/* List of files in queue */}
+            {/* List of files with progress */}
             <div
               style={{
-                maxHeight: '260px',
+                maxHeight: '280px',
                 overflowY: 'auto',
                 display: 'flex',
                 flexDirection: 'column',
@@ -194,67 +257,116 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                 paddingRight: '4px',
               }}
             >
-              {fileQueue.map((item, idx) => (
+              {fileQueue.map((item) => (
                 <div
-                  key={`${item.file.name}-${idx}`}
+                  key={item.id}
                   style={{
                     display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
+                    flexDirection: 'column',
                     padding: '10px 14px',
                     backgroundColor: 'var(--surface-muted)',
                     borderRadius: 'var(--radius-input)',
                     border: '1px solid var(--border)',
-                    gap: '12px',
+                    gap: '6px',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                    <span style={{ fontSize: '16px' }}>📄</span>
-                    <div style={{ minWidth: 0 }}>
-                      <div
-                        style={{
-                          fontSize: '13px',
-                          fontWeight: 500,
-                          color: 'var(--text)',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          maxWidth: '240px',
-                        }}
-                        title={item.file.name}
-                      >
-                        {item.file.name}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                      <span style={{ fontSize: '16px' }}>📄</span>
+                      <div style={{ minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: '13px',
+                            fontWeight: 500,
+                            color: 'var(--text)',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            maxWidth: '220px',
+                          }}
+                          title={item.file.name}
+                        >
+                          {item.file.name}
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                          {formatSize(item.file.size)}
+                        </div>
                       </div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                        {formatSize(item.file.size)}
-                        {item.message && ` • ${item.message}`}
-                      </div>
+                    </div>
+
+                    {/* Status Badge & Actions */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {item.status === 'pending' && <Badge variant="neutral">Ready</Badge>}
+                      {item.status === 'uploading' && (
+                        <Badge variant="warning" dot>
+                          Uploading {item.progress}%
+                        </Badge>
+                      )}
+                      {item.status === 'processing' && (
+                        <Badge variant="warning" dot>
+                          Parsing Text...
+                        </Badge>
+                      )}
+                      {item.status === 'uploaded' && (
+                        <Badge variant="confirmed">✓ Uploaded</Badge>
+                      )}
+                      {item.status === 'duplicate_skipped' && (
+                        <Badge variant="warning" dot>
+                          Duplicate (Skipped)
+                        </Badge>
+                      )}
+                      {item.status === 'failed' && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Badge variant="danger">Failed</Badge>
+                          {!isUploading && (
+                            <Button size="sm" variant="secondary" onClick={() => void handleRetrySingle(item)}>
+                              Retry
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  {/* Status Badge */}
-                  <div>
-                    {item.status === 'pending' && <Badge variant="neutral">Ready</Badge>}
-                    {item.status === 'uploading' && (
-                      <Badge variant="warning" dot>
-                        Uploading...
-                      </Badge>
-                    )}
-                    {item.status === 'uploaded' && (
-                      <Badge variant="confirmed">✓ Uploaded</Badge>
-                    )}
-                    {item.status === 'duplicate_skipped' && (
-                      <Badge variant="warning" dot>
-                        Duplicate (Skipped)
-                      </Badge>
-                    )}
-                    {item.status === 'failed' && <Badge variant="danger">Failed</Badge>}
-                  </div>
+                  {/* Progress bar when uploading */}
+                  {(item.status === 'uploading' || item.status === 'processing') && (
+                    <div
+                      style={{
+                        width: '100%',
+                        height: '4px',
+                        backgroundColor: 'var(--border)',
+                        borderRadius: '2px',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${item.progress}%`,
+                          height: '100%',
+                          backgroundColor: 'var(--primary)',
+                          transition: 'width 0.2s ease-out',
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {/* Message detail if available */}
+                  {item.message && (
+                    <div
+                      style={{
+                        fontSize: '11px',
+                        color: item.status === 'failed' ? 'var(--danger)' : 'var(--text-muted)',
+                        marginTop: '2px',
+                      }}
+                    >
+                      {formatDoctorFriendlyError(item.message)}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
 
-            {/* Summary message */}
+            {/* Summary notification banner */}
             {summary && (
               <div
                 style={{
@@ -262,22 +374,22 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                   borderRadius: 'var(--radius-input)',
                   backgroundColor:
                     summary.failed > 0
-                      ? 'var(--warning-soft)'
+                      ? 'var(--warning-soft, #fef3c7)'
                       : summary.uploaded > 0
-                        ? 'var(--success-soft)'
+                        ? 'var(--success-soft, #dcfce7)'
                         : 'var(--surface-muted)',
                   border: `1px solid ${
                     summary.failed > 0
-                      ? 'var(--warning)'
+                      ? 'var(--warning, #b45309)'
                       : summary.uploaded > 0
-                        ? 'var(--success)'
+                        ? 'var(--success, #15803d)'
                         : 'var(--border)'
                   }`,
                   fontSize: '13px',
                   color: 'var(--text)',
                 }}
               >
-                <strong>Upload Summary:</strong> {summary.uploaded} uploaded
+                <strong>Batch Results:</strong> {summary.uploaded} report(s) uploaded and parsed
                 {summary.skipped > 0 && `, ${summary.skipped} duplicate(s) skipped`}
                 {summary.failed > 0 && `, ${summary.failed} failed`}
               </div>
@@ -288,7 +400,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                 style={{
                   fontSize: '13px',
                   color: 'var(--danger)',
-                  backgroundColor: 'var(--danger-soft)',
+                  backgroundColor: 'var(--danger-soft, #fee2e2)',
                   padding: '8px 12px',
                   borderRadius: 'var(--radius-input)',
                   margin: 0,
@@ -301,7 +413,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
           </div>
         )}
 
-        {/* Modal footer actions */}
+        {/* Modal actions */}
         <div
           style={{
             display: 'flex',

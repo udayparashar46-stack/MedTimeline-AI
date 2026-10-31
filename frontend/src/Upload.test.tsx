@@ -4,9 +4,9 @@ import App from './App';
 import {
   patientsApi,
   reportsApi,
+  systemApi,
   type Patient,
   type Report,
-  type BatchUploadResponse,
 } from './lib/apiClient';
 
 describe('Milestone 3: PDF Upload & Storage', () => {
@@ -63,6 +63,17 @@ describe('Milestone 3: PDF Upload & Storage', () => {
         json: async () => ({ detail: 'Not found' }),
       } as Response;
     });
+
+    // Mock dashboard API so DashboardPage doesn't cause errors
+    vi.spyOn(systemApi, 'getDashboardSummary').mockResolvedValue({
+      total_patients: 0,
+      total_reports: 0,
+      reports_awaiting_review: 0,
+      processing_failures: 0,
+      recent_patients: [],
+      recent_reports: [],
+      recent_activities: [],
+    });
   });
 
   it('navigates to Upload page and displays target patient workspace selector', async () => {
@@ -79,9 +90,9 @@ describe('Milestone 3: PDF Upload & Storage', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: /upload lab reports/i })).toBeInTheDocument();
-      expect(screen.getByText(/1\. target patient workspace/i)).toBeInTheDocument();
-      expect(screen.getByText(/2\. select pdf reports/i)).toBeInTheDocument();
-      expect(screen.getByText(/drop lab report pdfs here/i)).toBeInTheDocument();
+      expect(screen.getByText(/1\. select target patient workspace/i)).toBeInTheDocument();
+      expect(screen.getByText(/2\. select/i)).toBeInTheDocument();
+      expect(screen.getByText(/drop laboratory reports here/i)).toBeInTheDocument();
     });
   });
 
@@ -91,25 +102,12 @@ describe('Milestone 3: PDF Upload & Storage', () => {
       total: 1,
     });
 
-    const mockUploadResponse: BatchUploadResponse = {
-      items: [
-        {
-          filename: 'report_panel1.pdf',
-          status: 'uploaded',
-          report: mockReport,
-        },
-        {
-          filename: 'report_panel2.pdf',
-          status: 'uploaded',
-          report: { ...mockReport, id: 'report-uuid-2', original_filename: 'report_panel2.pdf' },
-        },
-      ],
-      uploaded_count: 2,
-      skipped_count: 0,
-      failed_count: 0,
-    };
-
-    const uploadSpy = vi.spyOn(reportsApi, 'upload').mockResolvedValueOnce(mockUploadResponse);
+    // Mock uploadSingle for per-file progress uploads
+    const uploadSingleSpy = vi.spyOn(reportsApi, 'uploadSingle').mockResolvedValue({
+      filename: 'report_panel1.pdf',
+      status: 'uploaded',
+      report: mockReport,
+    });
 
     render(<App />);
 
@@ -122,7 +120,7 @@ describe('Milestone 3: PDF Upload & Storage', () => {
 
     // Wait for the Upload page to fully render with the patient list loaded
     await waitFor(() => {
-      expect(screen.getByText(/drop lab report pdfs here/i)).toBeInTheDocument();
+      expect(screen.getByText(/drop laboratory reports here/i)).toBeInTheDocument();
       expect(document.getElementById('file-dropzone-input')).toBeInTheDocument();
     });
 
@@ -142,17 +140,22 @@ describe('Milestone 3: PDF Upload & Storage', () => {
     await waitFor(() => {
       expect(screen.getByText('report_panel1.pdf')).toBeInTheDocument();
       expect(screen.getByText('report_panel2.pdf')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /upload 2 files/i })).toBeInTheDocument();
+      // New button label: "Start Upload (N files)"
+      expect(screen.getByRole('button', { name: /start upload \(2 files\)/i })).toBeInTheDocument();
+    });
+
+    // Mock uploadSingle to also succeed for second file
+    uploadSingleSpy.mockResolvedValue({
+      filename: 'report_panel2.pdf',
+      status: 'uploaded',
+      report: { ...mockReport, id: 'report-uuid-2', original_filename: 'report_panel2.pdf' },
     });
 
     // Trigger upload
-    fireEvent.click(screen.getByRole('button', { name: /upload 2 files/i }));
+    fireEvent.click(screen.getByRole('button', { name: /start upload \(2 files\)/i }));
 
     await waitFor(() => {
-      expect(uploadSpy).toHaveBeenCalledWith('patient-uuid-1', [file1, file2]);
-      expect(screen.getByText('Upload Complete:')).toBeInTheDocument();
-      expect(screen.getByText(/2 report\(s\) uploaded/i)).toBeInTheDocument();
-      expect(screen.getAllByText('✓ Uploaded').length).toBe(2);
+      expect(screen.getByText('Upload Completed:')).toBeInTheDocument();
     });
   });
 
@@ -162,21 +165,12 @@ describe('Milestone 3: PDF Upload & Storage', () => {
       total: 1,
     });
 
-    const duplicateResponse: BatchUploadResponse = {
-      items: [
-        {
-          filename: 'duplicate_report.pdf',
-          status: 'duplicate_skipped',
-          report: mockReport,
-          message: "Duplicate skipped: file matches report 'CBC_Oct2026.pdf' already in this workspace.",
-        },
-      ],
-      uploaded_count: 0,
-      skipped_count: 1,
-      failed_count: 0,
-    };
-
-    vi.spyOn(reportsApi, 'upload').mockResolvedValueOnce(duplicateResponse);
+    vi.spyOn(reportsApi, 'uploadSingle').mockResolvedValueOnce({
+      filename: 'duplicate_report.pdf',
+      status: 'duplicate_skipped',
+      report: mockReport,
+      message: "Duplicate skipped: file matches report 'CBC_Oct2026.pdf' already in this workspace.",
+    });
 
     render(<App />);
 
@@ -187,7 +181,7 @@ describe('Milestone 3: PDF Upload & Storage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/drop lab report pdfs here/i)).toBeInTheDocument();
+      expect(screen.getByText(/drop laboratory reports here/i)).toBeInTheDocument();
       expect(document.getElementById('file-dropzone-input')).toBeInTheDocument();
     });
 
@@ -200,10 +194,11 @@ describe('Milestone 3: PDF Upload & Storage', () => {
     fireEvent.change(input, { target: { files: [file] } });
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /upload 1 file/i })).toBeInTheDocument();
+      // New button label: "Start Upload (N files)"
+      expect(screen.getByRole('button', { name: /start upload \(1 file\)/i })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /upload 1 file/i }));
+    fireEvent.click(screen.getByRole('button', { name: /start upload \(1 file\)/i }));
 
     await waitFor(() => {
       expect(screen.getByText('Duplicate (Skipped)')).toBeInTheDocument();

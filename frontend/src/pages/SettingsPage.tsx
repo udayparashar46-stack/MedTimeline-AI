@@ -250,7 +250,15 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigateTo }) => {
               </div>
               <div>
                 <span style={{ color: 'var(--text-muted)' }}>Extraction Engine:</span>
-                <div style={{ fontWeight: 600, color: 'var(--text)', marginTop: '2px' }}>PyMuPDF 1.28.2 (Deterministic)</div>
+                <div style={{ fontWeight: 600, color: 'var(--text)', marginTop: '2px' }}>PyMuPDF (Text Layer + OCR)</div>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-muted)' }}>Storage Subsystem:</span>
+                <div style={{ fontWeight: 600, color: 'var(--text)', marginTop: '2px' }}>Multi-backend (Local / S3-compatible)</div>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-muted)' }}>Audit Trail:</span>
+                <div style={{ fontWeight: 600, color: 'var(--text)', marginTop: '2px' }}>Immutable Event Logging Active</div>
               </div>
             </div>
           </CardContent>

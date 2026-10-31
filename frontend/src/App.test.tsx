@@ -1,10 +1,30 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
+import { systemApi } from './lib/apiClient';
+
+const mockDashboardSummary = {
+  total_patients: 3,
+  total_reports: 7,
+  reports_awaiting_review: 2,
+  processing_failures: 0,
+  recent_patients: [
+    {
+      id: 'patient-uuid-1',
+      display_name: 'Sarah Jenkins',
+      report_count: 3,
+      latest_report_date: '2026-10-18',
+      created_at: '2026-10-18T10:00:00Z',
+    },
+  ],
+  recent_reports: [],
+  recent_activities: [],
+};
 
 describe('App Shell, Navigation & Health Status', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.spyOn(systemApi, 'getDashboardSummary').mockResolvedValue(mockDashboardSummary);
   });
 
   it('renders app title and initial connecting state', () => {
@@ -38,7 +58,7 @@ describe('App Shell, Navigation & Health Status', () => {
     });
   });
 
-  it('renders the Stitch-inspired Medical Dashboard with metrics and timelines', async () => {
+  it('renders the Clinical Dashboard with metrics and action buttons', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
       ok: true,
       json: async () => ({ status: 'ok' }),
@@ -50,27 +70,17 @@ describe('App Shell, Navigation & Health Status', () => {
       expect(screen.getAllByText('Backend connected').length).toBeGreaterThan(0);
     });
 
-    // Verify Dashboard Title & Subtitle
-    expect(screen.getAllByText('Medical Dashboard').length).toBeGreaterThan(0);
-    expect(
-      screen.getByText('Turn scattered lab reports into one clear patient timeline.'),
-    ).toBeInTheDocument();
+    // Verify Dashboard Title
+    expect(screen.getAllByText('Clinical Dashboard').length).toBeGreaterThan(0);
 
     // Verify Primary Action Buttons
     expect(screen.getAllByRole('button', { name: /upload reports/i }).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: /new patient/i })).toBeInTheDocument();
 
-    // Verify 4 Metric Cards
+    // Verify live Metric Cards from mocked API
     expect(screen.getByText('Total Patients')).toBeInTheDocument();
-    expect(screen.getByText('Reports Processed')).toBeInTheDocument();
-    expect(screen.getByText('Tests Extracted')).toBeInTheDocument();
-    expect(screen.getByText('Pending Reviews')).toBeInTheDocument();
-
-    // Verify Patient Timeline Table and Analyte Trends Preview
-    expect(screen.getByText('Recent Patient Timelines')).toBeInTheDocument();
-    expect(screen.getByText('Sarah Jenkins')).toBeInTheDocument();
-    expect(screen.getByText('Analyte Trends Preview')).toBeInTheDocument();
-    expect(screen.getByText('Recent Activity')).toBeInTheDocument();
+    expect(screen.getByText('Lab Reports')).toBeInTheDocument();
+    expect(screen.getByText('Awaiting Review')).toBeInTheDocument();
   });
 
   it('navigates to the Styleguide and displays design system components', async () => {

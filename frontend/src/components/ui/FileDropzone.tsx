@@ -10,8 +10,8 @@ export interface FileDropzoneProps {
 
 export const FileDropzone: React.FC<FileDropzoneProps> = ({
   onFilesSelected,
-  accept = '.pdf,application/pdf',
-  maxSizeMB = 20,
+  accept = '.pdf, .jpg, .jpeg, .png, .tiff, .tif, .docx, application/pdf, image/jpeg, image/png, image/tiff, application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  maxSizeMB = 25,
   disabled = false,
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
@@ -80,10 +80,10 @@ export const FileDropzone: React.FC<FileDropzoneProps> = ({
           cursor: disabled ? 'not-allowed' : 'pointer',
         }}
       >
-        Drop lab report PDFs here, or click to browse
+        Drop laboratory reports here (PDF, JPG, PNG, TIFF, DOCX), or click to browse
       </label>
       <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
-        Supports text-based PDFs up to {maxSizeMB} MB. Multi-file upload supported.
+        Universal report scanner: supports digital & scanned PDFs, images, and Word reports up to {maxSizeMB} MB. Multi-file upload supported.
       </p>
       <Button
         variant="secondary"
@@ -91,7 +91,7 @@ export const FileDropzone: React.FC<FileDropzoneProps> = ({
         disabled={disabled}
         onClick={() => document.getElementById('file-dropzone-input')?.click()}
       >
-        Select PDF Files
+        Select Report Files
       </Button>
     </div>
   );

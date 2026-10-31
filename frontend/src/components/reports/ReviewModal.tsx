@@ -71,6 +71,47 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
   // Audit history modal/popover state
   const [activeAuditResult, setActiveAuditResult] = useState<ExtractedResult | null>(null);
 
+  // Authenticated PDF streaming state
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [isPdfLoading, setIsPdfLoading] = useState(true);
+  const [pdfLoadError, setPdfLoadError] = useState<string | null>(null);
+
+  // Load authenticated PDF as blob to guarantee preview rendering with auth headers
+  useEffect(() => {
+    if (!isOpen || !report?.id) return;
+
+    let cancelled = false;
+    let createdUrl: string | null = null;
+    setIsPdfLoading(true);
+    setPdfLoadError(null);
+
+    reportsApi
+      .fetchReportBlob(report.id)
+      .then((blob) => {
+        if (!cancelled) {
+          const url = URL.createObjectURL(blob);
+          createdUrl = url;
+          setPdfBlobUrl(url);
+          setIsPdfLoading(false);
+        }
+      })
+      .catch((_err) => {
+        if (!cancelled) {
+          // If blob fetch failed, fall back to token query parameter URL
+          const fallback = reportsApi.getPdfUrl(report.id);
+          setPdfBlobUrl(fallback);
+          setIsPdfLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      if (createdUrl) {
+        URL.revokeObjectURL(createdUrl);
+      }
+    };
+  }, [isOpen, report?.id]);
+
   // Reset state when modal opens
   useEffect(() => {
     if (!isOpen) return;
@@ -343,18 +384,20 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
     }
   };
 
-  const pdfUrl = `${reportsApi.getPdfUrl(report.id)}#page=${activePage}`;
+  const pdfSrc = pdfBlobUrl
+    ? `${pdfBlobUrl}#page=${activePage}`
+    : `${reportsApi.getPdfUrl(report.id)}#page=${activePage}`;
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'confirmed':
-        return <Badge variant="confirmed">✓ Confirmed</Badge>;
+        return <Badge variant="confirmed">✓ Doctor Verified</Badge>;
       case 'edited':
-        return <Badge variant="edited">✏️ Edited</Badge>;
+        return <Badge variant="edited">✏️ Doctor Edited</Badge>;
       case 'rejected':
         return <Badge variant="danger">✕ Rejected</Badge>;
       case 'manual':
-        return <Badge variant="info">✚ Manual</Badge>;
+        return <Badge variant="info">✚ Manual Entry</Badge>;
       case 'unreviewed':
       default:
         return <Badge variant="warning">Needs Review</Badge>;
@@ -469,6 +512,15 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
                 )}
               </div>
             )}
+
+            {report.lab_name && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '12px' }}>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Laboratory:</span>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)' }}>
+                  🏥 {report.lab_name}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Report status & Action buttons */}
@@ -512,6 +564,25 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
         </div>
 
         {/* Alerts & Notifications */}
+        {report.failure_reason && (
+          <div
+            style={{
+              padding: '8px 12px',
+              backgroundColor: report.failure_reason.includes('Cross-Patient') ? 'rgba(239, 68, 68, 0.12)' : 'rgba(245, 158, 11, 0.1)',
+              border: `1px solid ${report.failure_reason.includes('Cross-Patient') ? 'rgba(239, 68, 68, 0.35)' : 'rgba(245, 158, 11, 0.25)'}`,
+              color: report.failure_reason.includes('Cross-Patient') ? '#b91c1c' : '#92400e',
+              borderRadius: 'var(--radius-card)',
+              fontSize: '13px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
+            <span>{report.failure_reason.includes('Cross-Patient') ? '🚨' : 'ℹ️'}</span>
+            <span>{report.failure_reason}</span>
+          </div>
+        )}
+
         {error && (
           <div
             style={{
@@ -608,16 +679,55 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
             </div>
 
             <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-              <iframe
-                key={`${report.id}-p${activePage}`}
-                src={pdfUrl}
-                title="Original PDF Report"
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  border: 'none',
-                }}
-              />
+              {isPdfLoading && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: '100%',
+                    color: 'var(--text-muted)',
+                    fontSize: '13px',
+                  }}
+                >
+                  Loading document preview...
+                </div>
+              )}
+              {pdfLoadError && (
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: '100%',
+                    padding: '16px',
+                    textAlign: 'center',
+                    color: 'var(--danger)',
+                    fontSize: '13px',
+                    gap: '8px',
+                  }}
+                >
+                  <span>⚠️ {pdfLoadError}</span>
+                  <Button size="sm" variant="secondary" onClick={() => window.location.reload()}>
+                    Refresh Session
+                  </Button>
+                </div>
+              )}
+              {pdfSrc && !pdfLoadError && (
+                <iframe
+                  key={`${report.id}-p${activePage}`}
+                  src={pdfSrc}
+                  title="Original PDF Report"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    border: 'none',
+                    display: isPdfLoading ? 'none' : 'block',
+                  }}
+                  onLoad={() => setIsPdfLoading(false)}
+                />
+              )}
             </div>
           </div>
 

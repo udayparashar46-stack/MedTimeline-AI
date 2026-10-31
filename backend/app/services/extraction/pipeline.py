@@ -1,28 +1,41 @@
-"""Extraction pipeline orchestrator (Milestone 4).
+"""Universal Laboratory Report Extraction Pipeline.
 
 Coordinates:
-1. Text layer detection (and scanned PDF flagging)
-2. Report collection date detection and disambiguation
-3. Extraction result packaging for persistence
+1. Multi-format document reading (PDF, Image, DOCX)
+2. Text layer and scanned document detection with modular OCR fallback
+3. Patient demographic and provenance metadata extraction (with patient safety mismatch guard)
+4. Report collection date detection and disambiguation
+5. Deterministic row parsing across visual lines and structured tables
+6. Extraction result packaging for persistence
 """
 
 import json
 from dataclasses import dataclass, asdict, field
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
-
-from app.services.extraction.text_layer import detect_text_layer, TextLayerResult
+from app.services.extraction.readers import (
+    get_document_reader,
+    DocumentContent,
+)
+from app.services.extraction.metadata_detect import (
+    detect_document_metadata,
+    ExtractedDocumentMetadata,
+)
 from app.services.extraction.date_detect import (
     detect_report_date,
     DateDetectionResult,
 )
-from app.services.extraction.parsers import (
-    extract_rows_from_pdf_bytes,
-    RowPipelineResult,
+from app.services.extraction.parsers.layout_models import (
     ParsedRowCandidate,
+    VisualLine,
+)
+from app.services.extraction.parsers.table_layout import run_table_layout_strategy
+from app.services.extraction.parsers.line_layout import run_line_layout_strategy
+from app.services.extraction.parsers import (
+    RowPipelineResult,
 )
 
-EXTRACTION_VERSION = "v0.6.0-m6"
+EXTRACTION_VERSION = "v1.0.0-universal"
 
 
 @dataclass
@@ -42,29 +55,45 @@ class ExtractionResult:
     rows: List[ParsedRowCandidate] = field(default_factory=list)
     row_summary: Optional[dict] = None
 
+    # Clinical metadata & patient safety
+    lab_name: Optional[str] = None
+    detected_patient_name: Optional[str] = None
+    patient_id_or_mrn: Optional[str] = None
+    age: Optional[str] = None
+    sex: Optional[str] = None
+    referring_doctor: Optional[str] = None
+    collection_date: Optional[str] = None
+    specimen_type: Optional[str] = None
+    patient_mismatch_warning: Optional[str] = None
+    renderable_pdf_bytes: Optional[bytes] = None
+
     def to_dict(self) -> dict:
         return asdict(self)
 
 
-def extract_report_from_bytes(pdf_bytes: bytes) -> ExtractionResult:
-    """Execute M4 text/date & M5 row parsing extraction pipeline on raw PDF bytes."""
-    # Step 1: Detect text layer
-    text_res: TextLayerResult = detect_text_layer(pdf_bytes)
+def extract_report_from_bytes(
+    file_bytes: bytes,
+    filename: str = "report.pdf",
+    target_patient_name: Optional[str] = None,
+) -> ExtractionResult:
+    """Execute Universal Extraction Pipeline across PDF, Images, or DOCX documents."""
+    reader, fmt = get_document_reader(file_bytes, filename)
+    doc_content: DocumentContent = reader.read(file_bytes, original_filename=filename)
 
-    # Step 2: Handle image-only or scanned reports
-    if not text_res.has_text_layer:
+    # 1. Handle unreadable or empty documents
+    if not doc_content.has_text_layer:
         return ExtractionResult(
             has_text_layer=False,
-            is_scanned=text_res.is_scanned,
-            total_characters=text_res.total_characters,
-            page_count=text_res.page_count,
+            is_scanned=doc_content.is_scanned,
+            total_characters=doc_content.total_characters,
+            page_count=doc_content.page_count,
             status="needs_review",
-            failure_reason=text_res.warning_message,
+            failure_reason=doc_content.warning_message,
             report_date=None,
             report_date_source_text=None,
             is_date_ambiguous=False,
             date_alternatives=[],
-            extracted_text=text_res.full_text,
+            extracted_text=doc_content.full_text,
             extraction_version=EXTRACTION_VERSION,
             rows=[],
             row_summary={
@@ -76,40 +105,84 @@ def extract_report_from_bytes(pdf_bytes: bytes) -> ExtractionResult:
                 "skipped_lines_count": 0,
                 "strategy_used": "none",
             },
+            renderable_pdf_bytes=doc_content.renderable_pdf_bytes,
         )
 
-    # Step 3: Detect and rank report collection dates
-    date_res: DateDetectionResult = detect_report_date(text_res.full_text)
+    # 2. Extract clinical metadata & verify patient identity
+    metadata: ExtractedDocumentMetadata = detect_document_metadata(
+        doc_content.full_text, target_patient_name=target_patient_name
+    )
 
-    # Step 4: Extract test rows and score confidence
-    row_res: RowPipelineResult = extract_rows_from_pdf_bytes(pdf_bytes)
+    # 3. Detect and disambiguate report dates
+    date_res: DateDetectionResult = detect_report_date(doc_content.full_text)
+    detected_date = metadata.report_date or date_res.detected_date
+
+    # 4. Extract rows using layout strategies across all visual lines
+    visual_lines = doc_content.get_all_visual_lines()
+    winning_rows: List[ParsedRowCandidate] = []
+    strategy_used = "none"
+    high_count = 0
+    medium_count = 0
+    low_count = 0
+    skipped_count = 0
+
+    if visual_lines:
+        res_table = run_table_layout_strategy(visual_lines)
+        res_line = run_line_layout_strategy(visual_lines)
+
+        if res_table.total_rows > 0 and res_table.score >= res_line.score:
+            winning = res_table
+        elif res_line.total_rows > 0:
+            winning = res_line
+        elif res_table.total_rows > 0:
+            winning = res_table
+        else:
+            winning = res_line
+
+        winning_rows = winning.rows
+        strategy_used = winning.strategy_name
+        high_count = winning.high_count
+        medium_count = winning.medium_count
+        low_count = winning.low_count
+        skipped_count = len(winning.skipped_lines)
 
     failure_reason = None
-    if not date_res.detected_date:
+    if metadata.patient_mismatch_warning:
+        failure_reason = metadata.patient_mismatch_warning
+    elif not detected_date:
         failure_reason = "No report collection date could be detected automatically. Manual confirmation required."
 
     return ExtractionResult(
         has_text_layer=True,
-        is_scanned=False,
-        total_characters=text_res.total_characters,
-        page_count=text_res.page_count,
+        is_scanned=doc_content.is_scanned,
+        total_characters=doc_content.total_characters,
+        page_count=doc_content.page_count,
         status="needs_review",
         failure_reason=failure_reason,
-        report_date=date_res.detected_date,
+        report_date=detected_date,
         report_date_source_text=date_res.source_text,
         is_date_ambiguous=date_res.is_ambiguous,
         date_alternatives=[a.to_dict() for a in date_res.alternatives],
-        extracted_text=text_res.full_text,
+        extracted_text=doc_content.full_text,
         extraction_version=EXTRACTION_VERSION,
-        rows=row_res.rows,
+        rows=winning_rows,
         row_summary={
-            "total_rows": row_res.total_rows,
-            "needs_review_count": row_res.needs_review_count,
-            "high_count": row_res.high_count,
-            "medium_count": row_res.medium_count,
-            "low_count": row_res.low_count,
-            "skipped_lines_count": row_res.skipped_lines_count,
-            "strategy_used": row_res.strategy_used,
+            "total_rows": len(winning_rows),
+            "needs_review_count": len(winning_rows),
+            "high_count": high_count,
+            "medium_count": medium_count,
+            "low_count": low_count,
+            "skipped_lines_count": skipped_count,
+            "strategy_used": strategy_used,
         },
+        lab_name=metadata.lab_name,
+        detected_patient_name=metadata.patient_name,
+        patient_id_or_mrn=metadata.patient_id_or_mrn,
+        age=metadata.age,
+        sex=metadata.sex,
+        referring_doctor=metadata.referring_doctor,
+        collection_date=metadata.collection_date,
+        specimen_type=metadata.specimen_type,
+        patient_mismatch_warning=metadata.patient_mismatch_warning,
+        renderable_pdf_bytes=doc_content.renderable_pdf_bytes,
     )
-

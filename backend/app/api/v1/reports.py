@@ -11,9 +11,12 @@ Endpoints:
 """
 
 import json
+import logging
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.core.config import settings
 from app.db.session import get_db
@@ -92,14 +95,14 @@ async def upload_reports(
             failed_count += 1
             continue
 
-        # Validation: extension, size, magic bytes, PyMuPDF integrity
-        is_valid, page_count, err_msg = storage_service.validate_pdf(content, filename)
+        # Validation: extension, size, magic bytes across PDF, Images, DOCX
+        is_valid, page_count, detected_fmt, err_msg = storage_service.validate_file(content, filename)
         if not is_valid:
             results.append(
                 ReportUploadItem(
                     filename=filename,
                     status="failed",
-                    message=err_msg or "File failed PDF validation.",
+                    message=err_msg or "File failed format validation.",
                 )
             )
             failed_count += 1
@@ -123,9 +126,38 @@ async def upload_reports(
             skipped_count += 1
             continue
 
+        # Universal extraction pipeline: run text, metadata & row extraction defensively
+        try:
+            extraction = extract_report_from_bytes(
+                content,
+                filename=filename,
+                target_patient_name=patient.display_name,
+            )
+        except Exception as e:
+            logger.error(f"Extraction error for file {filename}: {e}", exc_info=True)
+            from app.services.extraction.pipeline import ExtractionResult, EXTRACTION_VERSION
+            extraction = ExtractionResult(
+                has_text_layer=True,
+                is_scanned=False,
+                total_characters=0,
+                page_count=page_count,
+                status="needs_review",
+                failure_reason=f"Automated parser encountered an unexpected structure: {str(e)[:120]}. Manual review required.",
+                report_date=None,
+                report_date_source_text=None,
+                is_date_ambiguous=False,
+                date_alternatives=[],
+                extracted_text="",
+                extraction_version=EXTRACTION_VERSION,
+                rows=[],
+            )
+
+        # Prepare renderable representation for storage (so split-view viewer can view it as PDF)
+        renderable_bytes = extraction.renderable_pdf_bytes or storage_service.prepare_renderable_pdf(content, detected_fmt, filename)
+
         # Save to disk with UUID filename
         try:
-            storage_key = storage_service.save_file(content)
+            storage_key = storage_service.save_file(renderable_bytes)
         except Exception:
             results.append(
                 ReportUploadItem(
@@ -137,9 +169,6 @@ async def upload_reports(
             failed_count += 1
             continue
 
-        # Milestone 4: Run text & date extraction pipeline
-        extraction = extract_report_from_bytes(content)
-
         # Create Report record in database
         report = report_repo.create_report(
             db=db,
@@ -148,7 +177,7 @@ async def upload_reports(
             file_path=storage_key,
             file_sha256=sha256,
             file_size_bytes=len(content),
-            page_count=page_count,
+            page_count=extraction.page_count or page_count,
             status=extraction.status,
             failure_reason=extraction.failure_reason,
             has_text_layer=extraction.has_text_layer,
@@ -158,11 +187,15 @@ async def upload_reports(
             date_alternatives=json.dumps(extraction.date_alternatives),
             extracted_text=extraction.extracted_text,
             extraction_version=extraction.extraction_version,
+            lab_name=extraction.lab_name,
         )
 
         # Milestone 5: Persist extracted rows into ExtractedResult
         if extraction.rows:
-            result_repo.create_results_from_candidates(db, report.id, extraction.rows)
+            try:
+                result_repo.create_results_from_candidates(db, report.id, extraction.rows)
+            except Exception as e:
+                logger.error(f"Failed to persist extracted rows for report {report.id}: {e}", exc_info=True)
 
         results.append(
             ReportUploadItem(
@@ -265,6 +298,7 @@ def update_report(
 
 
 @router.get("/reports/{report_id}/file")
+@router.get("/reports/{report_id}/pdf")
 def get_report_file(
     report_id: str,
     db: Session = Depends(get_db),
@@ -273,14 +307,29 @@ def get_report_file(
     """Stream the raw PDF file for viewing in the split-screen review interface."""
     report = verify_report_access(report_id, db=db, current_user=current_user)
 
-    file_path = storage_service.get_file_path(report.file_path)
-    if file_path is None or not file_path.exists():
+    file_bytes = storage_service.get_file_bytes(report.file_path)
+    if file_bytes is None:
+        file_path = storage_service.get_file_path(report.file_path)
+        if file_path and file_path.exists():
+            return FileResponse(
+                path=str(file_path),
+                media_type="application/pdf",
+                filename=report.original_filename,
+            )
         raise HTTPException(status_code=404, detail="PDF file not found in storage.")
 
-    return FileResponse(
-        path=str(file_path),
+    audit_repo.log_audit_event(
+        db,
+        event_type="file_accessed",
+        patient_id=report.patient_id,
+        entity_id=report.id,
+        details=f"Streamed file {report.original_filename}",
+    )
+
+    return Response(
+        content=file_bytes,
         media_type="application/pdf",
-        filename=report.original_filename,
+        headers={"Content-Disposition": f'inline; filename="{report.original_filename}"'},
     )
 
 
@@ -310,12 +359,15 @@ def trigger_extraction(
     """Re-run M4 text-layer and date extraction on an uploaded report."""
     report = verify_report_access(report_id, db=db, current_user=current_user)
 
-    file_path = storage_service.get_file_path(report.file_path)
-    if file_path is None or not file_path.exists():
-        raise HTTPException(status_code=404, detail="Underlying PDF file missing from storage.")
+    content = storage_service.get_file_bytes(report.file_path)
+    if content is None:
+        file_path = storage_service.get_file_path(report.file_path)
+        if file_path and file_path.exists():
+            content = file_path.read_bytes()
+        else:
+            raise HTTPException(status_code=404, detail="Underlying PDF file missing from storage.")
 
-    content = file_path.read_bytes()
-    extraction = extract_report_from_bytes(content)
+    extraction = extract_report_from_bytes(content, filename=report.original_filename)
 
     updates = {
         "status": extraction.status,

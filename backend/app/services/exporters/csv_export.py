@@ -49,7 +49,7 @@ def export_patient_timeline_csv(
     writer.writerow([])
 
     # Table Header
-    header = ["Test Name", "Category", "Standard Unit"]
+    header = ["Test Name", "Category", "Standard Unit", "Reference Range"]
     for col in matrix.columns:
         date_label = col.report_date or "Unspecified Date"
         lab_suffix = f" ({col.lab_name})" if col.lab_name else ""
@@ -59,19 +59,22 @@ def export_patient_timeline_csv(
     # Data Rows
     for row in matrix.rows:
         unit_display = row.preferred_unit or (row.observed_units[0] if row.observed_units else "")
+        ref_display = row.standard_reference_range or "Lab-specific"
         row_data = [
             sanitize_csv_cell(row.test_name),
             sanitize_csv_cell(row.category),
             sanitize_csv_cell(unit_display),
+            sanitize_csv_cell(ref_display),
         ]
 
         for col in matrix.columns:
             cell = row.cells.get(col.report_id)
             if cell:
-                # Value with flag if out of range, e.g. "14.2" or "220 (H)"
                 val = cell.effective_value_text
                 if cell.printed_flag:
                     val = f"{val} ({cell.printed_flag})"
+                if cell.review_status == "unreviewed":
+                    val = f"{val} [Unreviewed]"
                 row_data.append(sanitize_csv_cell(val))
             else:
                 row_data.append("")  # Truly blank

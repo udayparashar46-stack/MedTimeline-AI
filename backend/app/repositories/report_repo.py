@@ -65,6 +65,7 @@ def create_report(
     date_alternatives: Optional[str] = None,
     extracted_text: Optional[str] = None,
     extraction_version: Optional[str] = None,
+    lab_name: Optional[str] = None,
 ) -> Report:
     """Create and persist a new Report record with M4 extraction attributes."""
     report = Report(
@@ -83,6 +84,7 @@ def create_report(
         date_alternatives=date_alternatives,
         extracted_text=extracted_text,
         extraction_version=extraction_version,
+        lab_name=lab_name,
     )
     db.add(report)
     db.commit()
@@ -97,7 +99,7 @@ def update_report(
 ) -> Report:
     """Update fields on a report (e.g. confirming date, editing lab name)."""
     for key, value in updates.items():
-        if hasattr(report, key) and value is not None:
+        if hasattr(report, key):
             setattr(report, key, value)
     db.commit()
     db.refresh(report)
